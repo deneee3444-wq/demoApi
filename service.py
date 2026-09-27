@@ -532,6 +532,11 @@ VIDEO_MODELS_CONFIG = {
         "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
         "supported_durations": list(range(4, 31)),
         "duration_config": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
+        "duration_config_by_resolution": {
+            "1080p": {'type': 'continuous', 'min': 4, 'max': 12, 'step': 1, 'default': 5},
+            "720p": {'type': 'continuous', 'min': 4, 'max': 25, 'step': 1, 'default': 5},
+            "480p": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
+        },
         "supported_resolutions_by_mode": {
             "ImageToVideo": ["480p", "720p", "1080p"],
             "TextToVideo": ["480p", "720p", "1080p"],
@@ -1229,18 +1234,7 @@ VIDEO_MODELS_CONFIG = {
 
 
 # Video Model ID Mapping (Frontend / API ID -> Backend Model ID)
-VIDEO_MODEL_MAPPING = {
-    "VEO_3_1": "veo_3_1_lite",
-    "GROK_VIDEO": "veo_3_1_lite",
-    # Fallback / case-insensitive aliases
-    "veo_3_1_lite": "veo_3_1_lite",
-    "veo_3_1": "veo_3_1_lite",
-    "grok_video": "veo_3_1_lite",
-}
-
-# Direct mapping in VIDEO_MODELS_CONFIG for safety
-VIDEO_MODELS_CONFIG["VEO_3_1"] = VIDEO_MODELS_CONFIG["veo_3_1_lite"]
-VIDEO_MODELS_CONFIG["GROK_VIDEO"] = VIDEO_MODELS_CONFIG["veo_3_1_lite"]
+VIDEO_MODEL_MAPPING = {}
 
 
 MODELS = {} # Compatibility mapping
@@ -1251,6 +1245,7 @@ AVAILABLE_MODELS = {
             "id": "NANO_BANANA",
             "name": "Nano Banana",
             "description": "Nano Banana by Google - Supports up to 3 Reference Images",
+            "credit": 1,
             "supports_reference_images": True,
             "max_reference_images": 3,
             "supported_sizes": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -1262,7 +1257,8 @@ AVAILABLE_MODELS = {
         {
             "id": "NANO_BANANA_2",
             "name": "Nano Banana 2",
-            "description": "Nano Banana 2 by Google - Supports up to 14 Reference Images",
+            "description": "Nano Banana 2 by Google - Supports up to 5 Reference Images",
+            "credit": 1,
             "supports_reference_images": True,
             "max_reference_images": 5,
             "supported_sizes": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -1274,7 +1270,8 @@ AVAILABLE_MODELS = {
         {
             "id": "NANO_BANANA_PRO",
             "name": "Nano Banana Pro",
-            "description": "Nano Banana Pro by Google - Supports up to 14 Reference Images",
+            "description": "Nano Banana Pro by Google - Supports up to 5 Reference Images",
+            "credit": 1,
             "supports_reference_images": True,
             "max_reference_images": 5,
             "supported_sizes": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -1286,7 +1283,8 @@ AVAILABLE_MODELS = {
         {
             "id": "GPT_IMAGE_2",
             "name": "GPT-Image-2",
-            "description": "GPT-Image-2 by OpenAI - Supports up to 16 Reference Images",
+            "description": "GPT-Image-2 by OpenAI - Supports up to 5 Reference Images",
+            "credit": 1,
             "supports_reference_images": True,
             "max_reference_images": 5,
             "supported_sizes": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -1298,35 +1296,105 @@ AVAILABLE_MODELS = {
     ],
     "video": [
         {
-            "id": "VEO_3_1",
-            "name": "Veo 3.1",
-            "description": "Veo 3.1 - Supports Start/End Frame",
+            "id": "seedance_2_5",
+            "name": "Seedance 2.5",
+            "description": "Seedance 2.5 by BytePlus - MAX: 1080p:12sn, 720p:25sn, 480p:30sn",
+            "credit": 1,
             "supports_start_frame": True,
             "supports_end_frame": True,
-            "supports_reference_images": False,
-            "max_reference_images": 0,
-            "supported_sizes": ["16:9", "9:16"],
-            "supported_durations": [4, 6, 8],
-            "supported_resolutions": ["720p", "1080p"],
-            "default_size": "16:9",
-            "default_resolution": "1080p",
-            "default_duration": 4,
-            "max_prompt_length": 4000
-        },
-        {
-            "id": "GROK_VIDEO",
-            "name": "Grok Video",
-            "description": "Grok Video - Supports Start/End Frame",
-            "supports_start_frame": True,
-            "supports_end_frame": True,
-            "supports_reference_images": False,
-            "max_reference_images": 0,
-            "supported_sizes": ["16:9", "9:16"],
-            "supported_durations": [8],
-            "supported_resolutions": ["720p"],
+            "supports_reference_images": True,
+            "max_reference_images": 5,
+            "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
+            "supported_frame_modes": ["single", "startend"],
+            "supported_sizes": ["16:9", "9:16", "1:1"],
+            "supported_durations_by_resolution": {
+                "1080p": list(range(4, 13)),
+                "720p": list(range(4, 26)),
+                "480p": list(range(4, 31)),
+            },
+            "supported_durations": list(range(4, 31)),
+            "supported_resolutions": ["480p", "720p", "1080p"],
+            "supported_resolutions_by_mode": {
+                "ImageToVideo": ["480p", "720p", "1080p"],
+                "TextToVideo": ["480p", "720p", "1080p"],
+                "ReferenceToVideo": ["480p", "720p", "1080p"],
+            },
+            "constraints": [
+                {"if": {"resolution": "1080p"}, "then": {"duration": list(range(4, 13))}},
+                {"if": {"resolution": "720p"}, "then": {"duration": list(range(4, 26))}},
+                {"if": {"resolution": "480p"}, "then": {"duration": list(range(4, 31))}},
+            ],
             "default_size": "16:9",
             "default_resolution": "720p",
-            "default_duration": 8,
+            "default_duration": 5,
+            "duration_config": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
+            "duration_config_by_resolution": {
+                "1080p": {'type': 'continuous', 'min': 4, 'max': 12, 'step': 1, 'default': 5},
+                "720p": {'type': 'continuous', 'min': 4, 'max': 25, 'step': 1, 'default': 5},
+                "480p": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
+            },
+            "max_prompt_length": 20000
+        },
+        {
+            "id": "wan_3_0",
+            "name": "Wan 3.0",
+            "description": "Wan 3.0 by Alibaba - Supports TextToVideo, ImageToVideo, ReferenceToVideo",
+            "credit": 1,
+            "supports_start_frame": True,
+            "supports_end_frame": True,
+            "supports_reference_images": True,
+            "max_reference_images": 5,
+            "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
+            "supported_frame_modes": ["single", "startend"],
+            "supported_sizes": ["16:9", "9:16", "1:1"],
+            "supported_durations": list(range(2, 31)),
+            "supported_resolutions": ["480p", "720p", "1080p"],
+            "supported_resolutions_by_mode": {
+                "ImageToVideo": ["1080p"],
+                "TextToVideo": ["480p", "720p", "1080p"],
+                "ReferenceToVideo": ["480p", "720p", "1080p"],
+            },
+            "default_size": "16:9",
+            "default_resolution": "720p",
+            "default_duration": 5,
+            "max_prompt_length": 20000
+        },
+        {
+            "id": "gemini_omni_flash",
+            "name": "Gemini Omni 1.1 Flash",
+            "description": "Gemini Omni 1.1 Flash by Google - Supports TextToVideo, ImageToVideo, ReferenceToVideo",
+            "credit": 1,
+            "supports_start_frame": True,
+            "supports_end_frame": True,
+            "supports_reference_images": True,
+            "max_reference_images": 5,
+            "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
+            "supported_frame_modes": ["single", "startend"],
+            "supported_sizes": ["16:9", "9:16"],
+            "supported_durations": list(range(3, 11)),
+            "supported_resolutions": ["360p", "720p", "1080p", "4k"],
+            "default_size": "16:9",
+            "default_resolution": "720p",
+            "default_duration": 5,
+            "max_prompt_length": 3500
+        },
+        {
+            "id": "veo_3_1_fast",
+            "name": "Veo 3.1 Fast",
+            "description": "Veo 3.1 Fast by Google - Supports TextToVideo, ImageToVideo",
+            "credit": 1,
+            "supports_start_frame": True,
+            "supports_end_frame": True,
+            "supports_reference_images": False,
+            "max_reference_images": 0,
+            "supported_modes": ["TextToVideo", "ImageToVideo"],
+            "supported_frame_modes": ["single", "startend"],
+            "supported_sizes": ["16:9", "9:16"],
+            "supported_durations": [4, 6, 8],
+            "supported_resolutions": ["720p", "1080p", "4k"],
+            "default_size": "16:9",
+            "default_resolution": "720p",
+            "default_duration": 4,
             "max_prompt_length": 4000
         }
     ],
@@ -1358,6 +1426,20 @@ def get_available_models(mode=None):
             model['supported_resolutions_by_mode'] = by_mode_res
         if by_mode_dur:
             model['supported_durations_by_mode'] = by_mode_dur
+
+        # Pass through duration_config and per-resolution duration constraints
+        if 'duration_config' in config and 'duration_config' not in model:
+            model['duration_config'] = config['duration_config']
+        if 'duration_config_by_resolution' in config and 'duration_config_by_resolution' not in model:
+            model['duration_config_by_resolution'] = config['duration_config_by_resolution']
+        if 'supported_durations_by_resolution' not in model:
+            # Build from duration_config_by_resolution if available
+            dcbr = config.get('duration_config_by_resolution')
+            if dcbr:
+                model['supported_durations_by_resolution'] = {
+                    res: list(range(dc['min'], dc['max'] + 1, dc.get('step', 1)))
+                    for res, dc in dcbr.items() if dc.get('type') == 'continuous'
+                }
     if mode:
         return models.get(mode, [])
     return models
