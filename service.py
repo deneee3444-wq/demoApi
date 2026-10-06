@@ -368,10 +368,10 @@ from bs4 import BeautifulSoup
 # HESAP OLUSTURMA VE AKTIFLESTIRME (temp-mail.asia)
 # ==============================================================================
 WHITELIST_DOMAINS = [
-    "umail.asia",
-    "cmail.asia",
-    "tempmailt.com",
-    "t-mail.asia",
+    #"umail.asia",
+    #"cmail.asia",
+    #"tempmailt.com",
+    #"t-mail.asia",
     "okyre.com",
     "asia.banglatip.com",
     "pmail.asia",
@@ -1465,10 +1465,10 @@ from bs4 import BeautifulSoup
 # İSTEDİĞİN DOMAİNLERİ BURAYA GİREBİLİRSİN
 # CyberLink ile stabil çalıştığı test edilen domainler listenin başındadır.
 WHITELIST_DOMAINS = [
-    "umail.asia",
-    "cmail.asia",
-    "tempmailt.com",
-    "t-mail.asia",
+    #"umail.asia",
+    #"cmail.asia",
+    #"tempmailt.com",
+    #"t-mail.asia",
     "okyre.com",
     "asia.banglatip.com",
     "pmail.asia",
