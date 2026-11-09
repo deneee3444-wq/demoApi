@@ -1,7 +1,7 @@
 """
 Service Module - Self-Contained MyEdit Online Integration
 Integrates with myEditOnline services.
-Uses temp-mail.asia temp mail for on-the-fly account registration and verification.
+Uses poofy.email temp mail for on-the-fly account registration and verification.
 Saves created accounts directly to the database.
 """
 import os
@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 from urllib.parse import quote
 import requests
-from typing import Union
+from typing import Union, Optional, List, Dict, Any
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -106,7 +106,7 @@ IMAGE_MODELS_CONFIG = {
         "name": "GPT Image 2.5 Sunburst",
         "vendor": "OpenAI",
         "actionId_prefix": "genimage_1_img_openai_gptimage2.5sunburst",
-        "promptLength": 8000,
+        "promptLength": 32000,
         "ref_img_limit": 16,
         "supported_resolutions": ["1K", "2K"],
         "supported_aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -121,7 +121,7 @@ IMAGE_MODELS_CONFIG = {
         "name": "GPT-Image-2.5 Flare",
         "vendor": "OpenAI",
         "actionId_prefix": "genimage_1_img_openai_gptimage2.5flare",
-        "promptLength": 8000,
+        "promptLength": 32000,
         "ref_img_limit": 16,
         "supported_resolutions": ["1K", "2K"],
         "supported_aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -177,6 +177,21 @@ IMAGE_MODELS_CONFIG = {
         "default_style": "Style_3002_Custom_Gemini",
         "process_time": 60,
     },
+    "gemini_nanobanana_2_1": {
+        "name": "Gemini Nano Banana 2.1",
+        "vendor": "Google",
+        "actionId_prefix": "genimage_1_img_google_gemininanobanana2.1",
+        "promptLength": 2500,
+        "ref_img_limit": 14,
+        "supported_resolutions": ["1K", "2K", "4K"],
+        "supported_aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
+        "credits": {
+            "none": {"1K": 3, "2K": 4, "4K": 8},
+            "enable": {"1K": 3, "2K": 4, "4K": 8},
+        },
+        "default_style": "Style_3004_Custom_Gemini",
+        "process_time": 60,
+    },
     "seedream_5_pro": {
         "name": "SeeDream 5.0 Pro",
         "vendor": "ByteDance",
@@ -206,6 +221,36 @@ IMAGE_MODELS_CONFIG = {
         },
         "default_style": "Style_7000_Custom_FluxAPI",
         "process_time": 40,
+    },
+    "qwen_image_3_pro": {
+        "name": "Qwen Image 3.0 Pro",
+        "vendor": "Alibaba",
+        "actionId_prefix": "genimage_1_img_alibaba_qwenimage3.0pro",
+        "promptLength": 4500,
+        "ref_img_limit": 3,
+        "supported_resolutions": ["1K", "2K"],
+        "supported_aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
+        "credits": {
+            "none": {"1K": 3, "2K": 5},
+            "enable": {"1K": 3, "2K": 5},
+        },
+        "default_style": "Style_001_Custom_QwenAPI",
+        "process_time": 100,
+    },
+    "qwen_image_3": {
+        "name": "Qwen Image 3.0",
+        "vendor": "Alibaba",
+        "actionId_prefix": "genimage_1_img_alibaba_qwenimage3.0",
+        "promptLength": 4500,
+        "ref_img_limit": 3,
+        "supported_resolutions": ["1K", "2K"],
+        "supported_aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
+        "credits": {
+            "none": {"1K": 2, "2K": 3},
+            "enable": {"1K": 2, "2K": 3},
+        },
+        "default_style": "Style_000_Custom_QwenAPI",
+        "process_time": 100,
     },
 
     # ==========================================================================
@@ -321,11 +366,11 @@ IMAGE_MODELS_CONFIG = {
         "actionId_prefix": "genimage_1_img_kling_o1",
         "promptLength": 2500,
         "ref_img_limit": 10,
-        "supported_resolutions": ["1K", "2K"],
+        "supported_resolutions": ["1K", "2K", "4K"],
         "supported_aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
         "credits": {
-            "none": {"1K": 3, "2K": 3},
-            "enable": {"1K": 3, "2K": 3},
+            "none": {"1K": 3, "2K": 3, "4K": 5},
+            "enable": {"1K": 3, "2K": 3, "4K": 5},
         },
         "default_style": "Style_5000_Custom_Kling",
         "process_time": 40,
@@ -362,38 +407,6 @@ IMAGE_MODELS_CONFIG = {
     },
 }
 
-from bs4 import BeautifulSoup
-
-# ==============================================================================
-# HESAP OLUSTURMA VE AKTIFLESTIRME (temp-mail.asia)
-# ==============================================================================
-WHITELIST_DOMAINS = [
-    #"umail.asia",
-    #"cmail.asia",
-    #"tempmailt.com",
-    #"t-mail.asia",
-    #"okyre.com",
-    #"asia.banglatip.com",
-    #"pmail.asia",
-    #"1mail.edu.pl",
-    "asia.1maill.com",
-    "bd.1maill.com",
-    "in.1maill.com",
-    "bd.5secmail.com",
-    "in.5secmail.com",
-    "ng.5secmail.com",
-    "asia.5secmail.com",
-]
-
-POLL_COMPONENTS = [
-    "frontend.components.action",
-    "frontend.components.token-login",
-    "frontend.components.check-mail",
-    "frontend.components.inbox-message",
-]
-
-
-
 
 # Image Model ID Mapping (Frontend / API ID -> Backend Model ID)
 IMAGE_MODEL_MAPPING = {
@@ -429,7 +442,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["480p", "720p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(4, 16)),
         "duration_config": {'type': 'continuous', 'min': 4, 'max': 15, 'step': 1, 'default': 5},
         "supported_resolutions_by_mode": {
@@ -461,7 +474,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["480p", "720p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(4, 16)),
         "duration_config": {'type': 'continuous', 'min': 4, 'max': 15, 'step': 1, 'default': 5},
         "supported_resolutions_by_mode": {
@@ -493,7 +506,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["480p", "720p", "1080p", "4K"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(4, 16)),
         "duration_config": {'type': 'continuous', 'min': 4, 'max': 15, 'step': 1, 'default': 5},
         "supported_resolutions_by_mode": {
@@ -529,14 +542,9 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["480p", "720p", "1080p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(4, 31)),
         "duration_config": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
-        "duration_config_by_resolution": {
-            "1080p": {'type': 'continuous', 'min': 4, 'max': 12, 'step': 1, 'default': 5},
-            "720p": {'type': 'continuous', 'min': 4, 'max': 25, 'step': 1, 'default': 5},
-            "480p": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
-        },
         "supported_resolutions_by_mode": {
             "ImageToVideo": ["480p", "720p", "1080p"],
             "TextToVideo": ["480p", "720p", "1080p"],
@@ -672,11 +680,11 @@ VIDEO_MODELS_CONFIG = {
         "name": "Wan 3.0",
         "model": "wan3.0-video",
         "vendor": "Alibaba",
-        "promptLength": 20000,
+        "promptLength": 19000,
         "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["480p", "720p", "1080p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(2, 31)),
         "duration_config": {'type': 'continuous', 'min': 2, 'max': 30, 'step': 1, 'default': 5},
         "supported_resolutions_by_mode": {
@@ -843,7 +851,52 @@ VIDEO_MODELS_CONFIG = {
     # ==========================================================================
     # KLING (Kuaishou)
     # ==========================================================================
-    "kling_3_0": {
+        "kling_4_0": {
+        "name": "Kling 4.0",
+        "model": "kling-4.0",
+        "vendor": "Kling",
+        "mode": "pro",
+        "promptLength": 11000,
+        "supported_modes": ["TextToVideo", "ImageToVideo"],
+        "supported_frame_modes": ["single", "startend"],
+        "supported_resolutions": ["720p", "1080p"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+        "supported_durations": list(range(3, 31)),
+        "duration_config": {'type': 'continuous', 'min': 3, 'max': 30, 'step': 1, 'default': 5},
+        "supported_resolutions_by_mode": {
+            "ImageToVideo": ["720p", "1080p"],
+            "TextToVideo": ["720p", "1080p"],
+        },
+        "action_id": "genvideo_1_sec_kling_4.0std_{sound}_{resolution}",
+        "action_id_i2v": "genvideo_1_sec_kling_custom_4.0std_{sound}_{frame_mode}_{resolution}",
+        "credit_map": {
+            ("TextToVideo", "none", "720p"): 9,
+            ("TextToVideo", "enable", "720p"): 11,
+            ("TextToVideo", "vendor", "720p"): 11,
+            ("TextToVideo", "none", "1080p"): 14,
+            ("TextToVideo", "enable", "1080p"): 16,
+            ("TextToVideo", "vendor", "1080p"): 16,
+            ("ImageToVideo", "none", "single", "720p"): 9,
+            ("ImageToVideo", "enable", "single", "720p"): 9,
+            ("ImageToVideo", "vendor", "single", "720p"): 9,
+            ("ImageToVideo", "none", "startend", "720p"): 9,
+            ("ImageToVideo", "enable", "startend", "720p"): 9,
+            ("ImageToVideo", "vendor", "startend", "720p"): 9,
+            ("ImageToVideo", "none", "single", "1080p"): 14,
+            ("ImageToVideo", "enable", "single", "1080p"): 14,
+            ("ImageToVideo", "vendor", "single", "1080p"): 14,
+            ("ImageToVideo", "none", "startend", "1080p"): 14,
+            ("ImageToVideo", "enable", "startend", "1080p"): 14,
+            ("ImageToVideo", "vendor", "startend", "1080p"): 14,
+            ("none", "720p"): 9,
+            ("vendor", "720p"): 11,
+            ("enable", "720p"): 11,
+            ("none", "1080p"): 14,
+            ("vendor", "1080p"): 16,
+            ("enable", "1080p"): 16,
+        },
+    },
+"kling_3_0": {
         "name": "Kling 3.0",
         "model": "kling-v3",
         "vendor": "Kling",
@@ -851,7 +904,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["720p", "1080p", "4k"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(3, 16)),
         "duration_config": {'type': 'continuous', 'min': 3, 'max': 15, 'step': 1, 'default': 5},
         "supported_resolutions_by_mode": {
@@ -882,10 +935,11 @@ VIDEO_MODELS_CONFIG = {
         "name": "Kling O3",
         "model": "kling-v3-omni",
         "vendor": "Kling",
+        "promptLength": 2500,
         "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["720p", "1080p", "4k"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(3, 16)),
         "duration_config": {'type': 'continuous', 'min': 3, 'max': 15, 'step': 1, 'default': 5},
         "supported_resolutions_by_mode": {
@@ -926,7 +980,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["1080p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": [5, 10],
         "duration_config": {'type': 'discrete', 'options': [5, 10], 'default': 5},
         "action_id": "genvideo_1_sec_kling_2.6pro_{sound}_1080p",
@@ -946,7 +1000,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["1080p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": [5, 10],
         "duration_config": {'type': 'discrete', 'options': [5, 10], 'default': 5},
         "action_id": "genvideo_1_sec_kling_2.5pro_{sound}_1080p",
@@ -966,7 +1020,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo"],
         "supported_frame_modes": ["single"],
         "supported_resolutions": ["720p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": [5, 10],
         "duration_config": {'type': 'discrete', 'options': [5, 10], 'default': 5},
         "action_id": "genvideo_1_sec_kling_2.5std_{sound}_720p",
@@ -986,7 +1040,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["ImageToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["1080p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": [5, 10],
         "duration_config": {'type': 'discrete', 'options': [5, 10], 'default': 5},
         "action_id_i2v": "genvideo_1_sec_kling_custom_o1pro_{sound}_{frame_mode}",
@@ -1003,7 +1057,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["ImageToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["720p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": [5, 10],
         "duration_config": {'type': 'discrete', 'options': [5, 10], 'default': 5},
         "action_id_i2v": "genvideo_1_sec_kling_custom_o1std_{sound}_{frame_mode}",
@@ -1016,7 +1070,26 @@ VIDEO_MODELS_CONFIG = {
     # ==========================================================================
     # VIDU (ShengShu)
     # ==========================================================================
-    "vidu_q3_pro": {
+        "vidu_q4": {
+        "name": "Vidu Q4",
+        "model": "viduq4",
+        "vendor": "Vidu",
+        "promptLength": 5000,
+        "supported_modes": ["TextToVideo", "ImageToVideo"],
+        "supported_frame_modes": ["single"],
+        "supported_resolutions": ["1080p"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+        "supported_durations": list(range(3, 17)),
+        "duration_config": {'type': 'continuous', 'min': 3, 'max': 16, 'step': 1, 'default': 5},
+        "action_id": "genvideo_1_sec_vidu_custom_q4_{sound}_single_1080p",
+        "action_id_i2v": "genvideo_1_sec_vidu_custom_q4_{sound}_single_1080p",
+        "credit_map": {
+            ("none", "1080p"): 6,
+            ("vendor", "1080p"): 6,
+            ("enable", "1080p"): 6,
+        },
+    },
+"vidu_q3_pro": {
         "name": "Vidu Q3 Pro",
         "model": "viduq3-pro",
         "vendor": "Vidu",
@@ -1024,7 +1097,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["540p", "720p", "1080p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(1, 17)),
         "duration_config": {'type': 'continuous', 'min': 1, 'max': 16, 'step': 1, 'default': 5},
         "supported_resolutions_by_mode": {
@@ -1050,7 +1123,7 @@ VIDEO_MODELS_CONFIG = {
         "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["540p", "720p", "1080p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(1, 17)),
         "duration_config": {'type': 'continuous', 'min': 1, 'max': 16, 'step': 1, 'default': 5},
         "supported_resolutions_by_mode": {
@@ -1074,19 +1147,89 @@ VIDEO_MODELS_CONFIG = {
             "max_media": 7,
         },
     },
-    "vidu_q2": {
-        "name": "Vidu Q2",
-        "model": "viduq2",
+    "vidu_q2_pro": {
+        "name": "Vidu Q2 Pro",
+        "model": {
+            "TextToVideo": "viduq2",
+            "ImageToVideo": "viduq2-pro",
+        },
         "vendor": "Vidu",
         "promptLength": 2000,
         "supported_modes": ["TextToVideo", "ImageToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["540p", "720p", "1080p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+        "supported_durations": list(range(1, 11)),
+        "duration_config": {'type': 'continuous', 'min': 1, 'max': 10, 'step': 1, 'default': 5},
+        "supported_resolutions_by_mode": {
+            "ImageToVideo": ["1080p"],
+            "TextToVideo": ["540p", "720p", "1080p"],
+        },
+        "action_id": "genvideo_1_sec_vidu_q2_{sound}_{resolution}",
+        "action_id_i2v": "genvideo_1_sec_vidu_custom_q2pro_{sound}_{frame_mode}",
+        "credit_map": {
+            ("ImageToVideo", "none", "1080p"): 3,
+            ("ImageToVideo", "vendor", "1080p"): 3,
+            ("TextToVideo", "none", "540p"): 1,
+            ("TextToVideo", "none", "720p"): 2,
+            ("TextToVideo", "none", "1080p"): 3,
+            ("TextToVideo", "vendor", "540p"): 1,
+            ("TextToVideo", "vendor", "720p"): 2,
+            ("TextToVideo", "vendor", "1080p"): 3,
+        },
+    },
+    "vidu_q2_turbo": {
+        "name": "Vidu Q2 Turbo",
+        "model": {
+            "TextToVideo": "viduq2",
+            "ImageToVideo": "viduq2-turbo",
+        },
+        "vendor": "Vidu",
+        "promptLength": 2000,
+        "supported_modes": ["TextToVideo", "ImageToVideo"],
+        "supported_frame_modes": ["single", "startend"],
+        "supported_resolutions": ["540p", "720p"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+        "supported_durations": list(range(1, 11)),
+        "duration_config": {'type': 'continuous', 'min': 1, 'max': 10, 'step': 1, 'default': 5},
+        "supported_resolutions_by_mode": {
+            "ImageToVideo": ["540p", "720p"],
+            "TextToVideo": ["540p", "720p"],
+        },
+        "action_id": "genvideo_1_sec_vidu_q2_{sound}_{resolution}",
+        "action_id_i2v": "genvideo_1_sec_vidu_custom_q2turbo_{sound}_{frame_mode}",
+        "credit_map": {
+            ("ImageToVideo", "none", "540p"): 3,
+            ("ImageToVideo", "none", "720p"): 3,
+            ("ImageToVideo", "vendor", "540p"): 3,
+            ("ImageToVideo", "vendor", "720p"): 3,
+            ("TextToVideo", "none", "540p"): 1,
+            ("TextToVideo", "none", "720p"): 2,
+            ("TextToVideo", "vendor", "540p"): 1,
+            ("TextToVideo", "vendor", "720p"): 2,
+        },
+    },
+    "vidu_q2": {
+        "name": "Vidu Q2",
+        "model": {
+            "TextToVideo": "viduq2",
+            "ImageToVideo": "viduq2-turbo",
+        },
+        "vendor": "Vidu",
+        "promptLength": 2000,
+        "supported_modes": ["TextToVideo", "ImageToVideo"],
+        "supported_frame_modes": ["single", "startend"],
+        "supported_resolutions": ["540p", "720p", "1080p"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(1, 11)),
         "duration_config": {'type': 'continuous', 'min': 1, 'max': 10, 'step': 1, 'default': 5},
         "action_id": "genvideo_1_sec_vidu_q2_{sound}_{resolution}",
         "action_id_i2v": "genvideo_1_sec_vidu_custom_q2turbo_{sound}_{frame_mode}",
+        "action_id_i2v_overrides": {
+            "1080p": "genvideo_1_sec_vidu_custom_q2pro_{sound}_{frame_mode}",
+            "720p": "genvideo_1_sec_vidu_custom_q2turbo_{sound}_{frame_mode}",
+            "540p": "genvideo_1_sec_vidu_custom_q2turbo_{sound}_{frame_mode}",
+        },
         "credit_map": {
             ("ImageToVideo", "none", "540p"): 3,
             ("ImageToVideo", "none", "720p"): 3,
@@ -1110,11 +1253,11 @@ VIDEO_MODELS_CONFIG = {
         "name": "PixVerse V6",
         "model": "v6",
         "vendor": "Pixverse",
-        "promptLength": 2048,
+        "promptLength": 4900,
         "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
         "supported_frame_modes": ["single", "startend"],
         "supported_resolutions": ["540p", "720p", "1080p"],
-        "supported_aspect_ratios": ["16:9", "9:16", "1:1"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
         "supported_durations": list(range(1, 16)),
         "duration_config": {'type': 'continuous', 'min': 1, 'max': 15, 'step': 1, 'default': 5},
         "supported_resolutions_by_mode": {
@@ -1225,12 +1368,89 @@ VIDEO_MODELS_CONFIG = {
             ("vendor", "720p"): 3,
         },
     },
+    # ==========================================================================
+    # HAILUO (MiniMax)
+    # ==========================================================================
+    "minimax_h3": {
+        "name": "MiniMax H3",
+        "model": {
+            "std": "MiniMax-H3",
+            "max": "MiniMax-H3-Max",
+        },
+        "vendor": "Hailuo",
+        "promptLength": 6900,
+        "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
+        "supported_frame_modes": ["single", "startend"],
+        "supported_resolutions": ["480p", "768p", "2k"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+        "supported_durations": list(range(5, 16)),
+        "duration_config": {'type': 'continuous', 'min': 5, 'max': 15, 'step': 1, 'default': 5},
+        "supported_resolutions_by_mode": {
+            "ImageToVideo": ["480p", "768p", "2k"],
+            "TextToVideo": ["480p", "768p", "2k"],
+            "ReferenceToVideo": ["480p", "768p", "2k"],
+        },
+        "action_id": "genvideo_1_sec_minimax_minimaxh3_{sound}_{resolution}",
+        "action_id_overrides": {
+            "480p": "genvideo_1_sec_minimax_minimaxh3max_{sound}_480p",
+        },
+        "action_id_i2v": "genvideo_1_sec_minimax_custom_minimaxh3_{sound}_{frame_mode}_{resolution}",
+        "action_id_i2v_overrides": {
+            "480p": "genvideo_1_sec_minimax_custom_minimaxh3max_{sound}_{frame_mode}_480p",
+        },
+        "credit_map": {
+            ("none", "480p"): 3,
+            ("vendor", "480p"): 3,
+            ("enable", "480p"): 3,
+            ("none", "768p"): 5,
+            ("vendor", "768p"): 5,
+            ("enable", "768p"): 5,
+            ("none", "2k"): 8,
+            ("vendor", "2k"): 8,
+            ("enable", "2k"): 8,
+        },
+        "reference_media_limit": {
+            "supported_types": ["image", "video"],
+            "max_images": 9,
+            "max_videos": 3,
+            "max_total": 12,
+            "max_video_duration": 15,
+        },
+    },
+
+    # ==========================================================================
+    # BLACKFOREST (Flux)
+    # ==========================================================================
+    "flux_3": {
+        "name": "Flux 3",
+        "model": "flux-3-video",
+        "vendor": "Flux",
+        "promptLength": 7000,
+        "supported_modes": ["TextToVideo", "ImageToVideo"],
+        "supported_frame_modes": ["single", "startend"],
+        "supported_resolutions": ["720p", "1080p", "2k", "4k"],
+        "supported_aspect_ratios": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+        "supported_durations": list(range(5, 21)),
+        "duration_config": {'type': 'continuous', 'min': 5, 'max': 20, 'step': 1, 'default': 5},
+        "action_id": "genvideo_1_sec_blackforest_flux3_{sound}_{resolution}",
+        "action_id_i2v": "genvideo_1_sec_blackforest_custom_flux3_{sound}_{frame_mode}_{resolution}",
+        "credit_map": {
+            ("none", "720p"): 9,
+            ("vendor", "720p"): 9,
+            ("enable", "720p"): 9,
+            ("none", "1080p"): 15,
+            ("vendor", "1080p"): 15,
+            ("enable", "1080p"): 15,
+            ("none", "2k"): 20,
+            ("vendor", "2k"): 20,
+            ("enable", "2k"): 20,
+            ("none", "4k"): 35,
+            ("vendor", "4k"): 35,
+            ("enable", "4k"): 35,
+        },
+    },
+
 }
-
-
-# ==============================================================================
-# IMAGE MODELS CONFIGURATION (GERCEK RESIM MODELLERI - FRONTEND VE API KAYNAKLI)
-# ==============================================================================
 
 
 # Video Model ID Mapping (Frontend / API ID -> Backend Model ID)
@@ -1245,7 +1465,7 @@ AVAILABLE_MODELS = {
             "id": "NANO_BANANA",
             "name": "Nano Banana",
             "description": "Nano Banana by Google - Supports up to 3 Reference Images",
-            "credit": 1,
+            "credit": 2,
             "supports_reference_images": True,
             "max_reference_images": 3,
             "supported_sizes": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -1258,7 +1478,7 @@ AVAILABLE_MODELS = {
             "id": "NANO_BANANA_2",
             "name": "Nano Banana 2",
             "description": "Nano Banana 2 by Google - Supports up to 5 Reference Images",
-            "credit": 1,
+            "credit": 2,
             "supports_reference_images": True,
             "max_reference_images": 5,
             "supported_sizes": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -1271,7 +1491,7 @@ AVAILABLE_MODELS = {
             "id": "NANO_BANANA_PRO",
             "name": "Nano Banana Pro",
             "description": "Nano Banana Pro by Google - Supports up to 5 Reference Images",
-            "credit": 1,
+            "credit": 2,
             "supports_reference_images": True,
             "max_reference_images": 5,
             "supported_sizes": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -1284,7 +1504,7 @@ AVAILABLE_MODELS = {
             "id": "GPT_IMAGE_2",
             "name": "GPT-Image-2",
             "description": "GPT-Image-2 by OpenAI - Supports up to 5 Reference Images",
-            "credit": 1,
+            "credit": 2,
             "supports_reference_images": True,
             "max_reference_images": 5,
             "supported_sizes": ["1:1", "16:9", "9:16", "4:3", "3:4"],
@@ -1296,107 +1516,107 @@ AVAILABLE_MODELS = {
     ],
     "video": [
         {
-    "id": "seedance_2_5",
-    "name": "Seedance 2.5",
-    "description": "Seedance 2.5 by BytePlus - MAX: 1080p:12sn, 720p:25sn, 480p:30sn",
-    "credit": 1,
-    "supports_start_frame": True,
-    "supports_end_frame": True,
-    "supports_reference_images": True,
-    "max_reference_images": 5,
-    "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
-    "supported_frame_modes": ["single", "startend"],
-    "supported_sizes": ["16:9", "9:16", "1:1"],
-    "supported_durations_by_resolution": {
-        "1080p": list(range(4, 13)),
-        "720p": list(range(4, 26)),
-        "480p": list(range(4, 31)),
-    },
-    "supported_durations": list(range(4, 31)),
-    "supported_resolutions": ["480p", "720p", "1080p"],
-    "supported_resolutions_by_mode": {
-        "ImageToVideo": ["480p", "720p", "1080p"],
-        "TextToVideo": ["480p", "720p", "1080p"],
-        "ReferenceToVideo": ["480p", "720p", "1080p"],
-    },
-    "constraints": [
-        {"if": {"resolution": "1080p"}, "then": {"duration": list(range(4, 13))}},
-        {"if": {"resolution": "720p"}, "then": {"duration": list(range(4, 26))}},
-        {"if": {"resolution": "480p"}, "then": {"duration": list(range(4, 31))}},
-    ],
-    "default_size": "16:9",
-    "default_resolution": "720p",
-    "default_duration": 5,
-    "duration_config": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
-    "duration_config_by_resolution": {
-        "1080p": {'type': 'continuous', 'min': 4, 'max': 12, 'step': 1, 'default': 5},
-        "720p": {'type': 'continuous', 'min': 4, 'max': 25, 'step': 1, 'default': 5},
-        "480p": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
-    },
-    "max_prompt_length": 20000
-},
-{
-    "id": "wan_3_0",
-    "name": "Wan 3.0",
-    "description": "Wan 3.0 by Alibaba - Supports TextToVideo, ImageToVideo, ReferenceToVideo",
-    "credit": 1,
-    "supports_start_frame": True,
-    "supports_end_frame": True,
-    "supports_reference_images": True,
-    "max_reference_images": 5,
-    "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
-    "supported_frame_modes": ["single", "startend"],
-    "supported_sizes": ["16:9", "9:16", "1:1"],
-    "supported_durations": list(range(2, 31)),
-    "supported_resolutions": ["480p", "720p", "1080p"],
-    "supported_resolutions_by_mode": {
-        "ImageToVideo": ["1080p"],
-        "TextToVideo": ["480p", "720p", "1080p"],
-        "ReferenceToVideo": ["480p", "720p", "1080p"],
-    },
-    "default_size": "16:9",
-    "default_resolution": "720p",
-    "default_duration": 5,
-    "max_prompt_length": 20000
-},
-{
-    "id": "gemini_omni_flash",
-    "name": "Gemini Omni 1.1 Flash",
-    "description": "Gemini Omni 1.1 Flash by Google - Supports TextToVideo, ImageToVideo, ReferenceToVideo",
-    "credit": 1,
-    "supports_start_frame": True,
-    "supports_end_frame": True,
-    "supports_reference_images": True,
-    "max_reference_images": 5,
-    "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
-    "supported_frame_modes": ["single", "startend"],
-    "supported_sizes": ["16:9", "9:16"],
-    "supported_durations": list(range(3, 11)),
-    "supported_resolutions": ["360p", "720p", "1080p", "4k"],
-    "default_size": "16:9",
-    "default_resolution": "720p",
-    "default_duration": 5,
-    "max_prompt_length": 3500
-},
-{
-    "id": "veo_3_1_fast",
-    "name": "Veo 3.1 Fast",
-    "description": "Veo 3.1 Fast by Google - Supports TextToVideo, ImageToVideo",
-    "credit": 1,
-    "supports_start_frame": True,
-    "supports_end_frame": True,
-    "supports_reference_images": False,
-    "max_reference_images": 0,
-    "supported_modes": ["TextToVideo", "ImageToVideo"],
-    "supported_frame_modes": ["single", "startend"],
-    "supported_sizes": ["16:9", "9:16"],
-    "supported_durations": [4, 6, 8],
-    "supported_resolutions": ["720p", "1080p", "4k"],
-    "default_size": "16:9",
-    "default_resolution": "720p",
-    "default_duration": 4,
-    "max_prompt_length": 4000
-}
+            "id": "seedance_2_5",
+            "name": "Seedance 2.5",
+            "description": "Seedance 2.5 by BytePlus - MAX: 1080p:11sn, 720p:23sn, 480p:30sn",
+            "credit": 5,
+            "supports_start_frame": True,
+            "supports_end_frame": True,
+            "supports_reference_images": True,
+            "max_reference_images": 5,
+            "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
+            "supported_frame_modes": ["single", "startend"],
+            "supported_sizes": ["16:9", "9:16", "1:1"],
+            "supported_durations_by_resolution": {
+                "1080p": list(range(4, 12)),
+                "720p": list(range(4, 24)),
+                "480p": list(range(4, 31)),
+            },
+            "supported_durations": list(range(4, 31)),
+            "supported_resolutions": ["480p", "720p", "1080p"],
+            "supported_resolutions_by_mode": {
+                "ImageToVideo": ["480p", "720p", "1080p"],
+                "TextToVideo": ["480p", "720p", "1080p"],
+                "ReferenceToVideo": ["480p", "720p", "1080p"],
+            },
+            "constraints": [
+                {"if": {"resolution": "1080p"}, "then": {"duration": list(range(4, 12))}},
+                {"if": {"resolution": "720p"}, "then": {"duration": list(range(4, 24))}},
+                {"if": {"resolution": "480p"}, "then": {"duration": list(range(4, 31))}},
+            ],
+            "default_size": "16:9",
+            "default_resolution": "720p",
+            "default_duration": 5,
+            "duration_config": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
+            "duration_config_by_resolution": {
+                "1080p": {'type': 'continuous', 'min': 4, 'max': 11, 'step': 1, 'default': 5},
+                "720p": {'type': 'continuous', 'min': 4, 'max': 23, 'step': 1, 'default': 5},
+                "480p": {'type': 'continuous', 'min': 4, 'max': 30, 'step': 1, 'default': 5},
+            },
+            "max_prompt_length": 20000
+        },
+        {
+            "id": "wan_3_0",
+            "name": "Wan 3.0",
+            "description": "Wan 3.0 by Alibaba - Supports TextToVideo, ImageToVideo, ReferenceToVideo",
+            "credit": 5,
+            "supports_start_frame": True,
+            "supports_end_frame": True,
+            "supports_reference_images": True,
+            "max_reference_images": 5,
+            "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
+            "supported_frame_modes": ["single", "startend"],
+            "supported_sizes": ["16:9", "9:16", "1:1"],
+            "supported_durations": list(range(2, 31)),
+            "supported_resolutions": ["480p", "720p", "1080p"],
+            "supported_resolutions_by_mode": {
+                "ImageToVideo": ["1080p"],
+                "TextToVideo": ["480p", "720p", "1080p"],
+                "ReferenceToVideo": ["480p", "720p", "1080p"],
+            },
+            "default_size": "16:9",
+            "default_resolution": "720p",
+            "default_duration": 5,
+            "max_prompt_length": 20000
+        },
+        {
+            "id": "gemini_omni_flash",
+            "name": "Gemini Omni 1.1 Flash",
+            "description": "Gemini Omni 1.1 Flash by Google - Supports TextToVideo, ImageToVideo, ReferenceToVideo",
+            "credit": 5,
+            "supports_start_frame": True,
+            "supports_end_frame": True,
+            "supports_reference_images": True,
+            "max_reference_images": 5,
+            "supported_modes": ["TextToVideo", "ImageToVideo", "ReferenceToVideo"],
+            "supported_frame_modes": ["single", "startend"],
+            "supported_sizes": ["16:9", "9:16"],
+            "supported_durations": list(range(3, 11)),
+            "supported_resolutions": ["360p", "720p", "1080p", "4k"],
+            "default_size": "16:9",
+            "default_resolution": "720p",
+            "default_duration": 5,
+            "max_prompt_length": 3500
+        },
+        {
+            "id": "veo_3_1_fast",
+            "name": "Veo 3.1 Fast",
+            "description": "Veo 3.1 Fast by Google - Supports TextToVideo, ImageToVideo",
+            "credit": 5,
+            "supports_start_frame": True,
+            "supports_end_frame": True,
+            "supports_reference_images": False,
+            "max_reference_images": 0,
+            "supported_modes": ["TextToVideo", "ImageToVideo"],
+            "supported_frame_modes": ["single", "startend"],
+            "supported_sizes": ["16:9", "9:16"],
+            "supported_durations": [4, 6, 8],
+            "supported_resolutions": ["720p", "1080p", "4k"],
+            "default_size": "16:9",
+            "default_resolution": "720p",
+            "default_duration": 4,
+            "max_prompt_length": 4000
+        }
     ],
     "tts": [],
     "music": []
@@ -1459,27 +1679,13 @@ def make_proxy_url(raw_url):
 from bs4 import BeautifulSoup
 
 # ==============================================================================
-# MYEDIT ONLINE ALTYAPI VE KRIPTOGRAFİK YARDIMCILAR (temp-mail.asia)
+# MYEDIT ONLINE ALTYAPI VE KRIPTOGRAFİK YARDIMCILAR (Poofy Email)
 # ==============================================================================
 
 # İSTEDİĞİN DOMAİNLERİ BURAYA GİREBİLİRSİN
 # CyberLink ile stabil çalıştığı test edilen domainler listenin başındadır.
 WHITELIST_DOMAINS = [
-    #"umail.asia",
-    #"cmail.asia",
-    #"tempmailt.com",
-    #"t-mail.asia",
-    #"okyre.com",
-    #"asia.banglatip.com",
-    #"pmail.asia",
-    #"1mail.edu.pl",
-    "asia.1maill.com",
-    "bd.1maill.com",
-    "in.1maill.com",
-    "bd.5secmail.com",
-    "in.5secmail.com",
-    "ng.5secmail.com",
-    "asia.5secmail.com",
+    "fansubupdate.com",
 ]
 
 POLL_COMPONENTS = [
@@ -1490,16 +1696,19 @@ POLL_COMPONENTS = [
 ]
 
 
-def generate_random_username(length: int = 10) -> str:
-    """Belirtilen uzunlukta harf ve rakamlardan oluşan rastgele bir kullanıcı adı üretir."""
+def generate_random_name(length: int = 10) -> str:
+    """Rastgele kullanıcı adı üretir (örn: u_7a8b9c)."""
     chars = string.ascii_lowercase + string.digits
-    return "".join(random.choices(chars, k=length))
+    rand_suffix = "".join(random.choices(chars, k=length))
+    return f"u_{rand_suffix}"
+
+generate_random_username = generate_random_name
 
 
 # ==============================================================================
-# TEMP MAIL PROXY AYARLARI (Render.com temp-mail.asia 403 Engeli İcin)
+# TEMP MAIL PROXY AYARLARI (Render.com Temp Mail Proxy Ayari İcin)
 # ==============================================================================
-# Render.com sunucularında temp-mail.asia IP engeline (403 Forbidden) takıldığı
+# Render.com sunucularında temp mail IP rate limit veya engeline karşı
 # için sadece temp mail isteklerine özel bu proxy alanı tanımlanmıştır.
 # Temp mail dışındaki CyberLink, resim, video vb. hiçbir istek bu proxy'yi KULLANMAZ.
 #
@@ -1509,8 +1718,8 @@ def generate_random_username(length: int = 10) -> str:
 TEMP_MAIL_PROXY_MODE = 1
 
 TEMP_MAIL_PROXY_CONFIG = {
-    "http": "http://nrrbciri-1:5cauzsujeluf@p.webshare.io:80",
-    "https": "http://nrrbciri-1:5cauzsujeluf@p.webshare.io:80",
+    "http": "http://nrrbciri-rotate:5cauzsujeluf@p.webshare.io:80",
+    "https": "http://nrrbciri-rotate:5cauzsujeluf@p.webshare.io:80",
 }
 
 
@@ -1525,355 +1734,325 @@ def apply_temp_mail_proxy(session: requests.Session):
 # ==============================================================================
 
 
+PROXY_MODE = TEMP_MAIL_PROXY_MODE
+PROXY_CONFIG = TEMP_MAIL_PROXY_CONFIG
+
 class TempMailClient:
-    """temp-mail.asia Livewire Entegrasyonu"""
+    """Poofy Email (poofy.email) API İstemcisi"""
 
-    BASE_URL = "https://temp-mail.asia"
+    BASE_URL = "https://poofy.email"
 
-    def __init__(self, domain: str = None):
+    def __init__(
+        self,
+        domain: Optional[str] = None,
+        api_key: Optional[str] = None,
+        proxy_mode: int = PROXY_MODE,
+        proxy_config: Optional[dict] = None,
+    ):
         self.domain = domain
-        self.box = None
+        self.api_key = api_key or os.environ.get("POOFY_API_KEY")
+        self.inbox_id = None
+        self.address = None
         self.email = None
-        self.session = requests.Session()
-        apply_temp_mail_proxy(self.session)
-        self.csrf = None
-        self.components = {}
-        self.lw_headers = {}
+        self.box = None
+        self.password = None
         self._seen_ids = set()
 
-    def get_email(self, length: int = 10, domain: str = None) -> str:
-        """Yeni bir geçici e-posta adresi üretir ve temp-mail.asia oturumuna bağlar."""
-        if domain:
-            self.domain = domain
-        elif not self.domain and WHITELIST_DOMAINS:
-            self.domain = WHITELIST_DOMAINS[0]
-
-        init_headers = {
-            "Accept": (
-                "text/html,application/xhtml+xml,application/xml;q=0.9,"
-                "image/avif,image/webp,image/apng,*/*;q=0.8"
-            ),
-            "Accept-Encoding": "gzip, deflate",
-            "Accept-Language": "tr-TR,tr;q=0.9",
+        self.session = requests.Session()
+        self.session.headers.update({
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/147.0.0.0 Safari/437.36"
+                "Chrome/124.0.0.0 Safari/537.36"
             ),
-            "upgrade-insecure-requests": "1",
-        }
-
-        resp = self.session.get(f"{self.BASE_URL}/", headers=init_headers, timeout=30)
-        resp.raise_for_status()
-        html = resp.text
-
-        csrf_match = re.search(r'data-csrf=["\']([^"\']+)["\']', html)
-        email_match = re.search(r"const email\s*=\s*'([^']+)'", html)
-        self.csrf = csrf_match.group(1) if csrf_match else None
-        default_email = email_match.group(1) if email_match else None
-
-        soup = BeautifulSoup(html, "html.parser")
-        self.components = {}
-        for el in soup.find_all(attrs={"wire:snapshot": True}):
-            raw_snap = el.get("wire:snapshot", "")
-            try:
-                snap_data = json.loads(raw_snap)
-                name = snap_data.get("memo", {}).get("name", "")
-                if name:
-                    self.components[name] = {"snapshot": raw_snap, "name": name}
-            except Exception:
-                pass
-
-        self.lw_headers = {
-            "Accept": "*/*",
+            "Accept": "application/json",
             "Accept-Encoding": "gzip, deflate",
-            "Accept-Language": "tr-TR,tr;q=0.9",
-            "Content-Type": "application/json",
             "Origin": self.BASE_URL,
             "Referer": f"{self.BASE_URL}/",
-            "User-Agent": init_headers["User-Agent"],
-            "x-livewire": "1",
-            "x-csrf-token": self.csrf,
-        }
+        })
 
-        if self.domain:
-            self.box = generate_random_username(length)
-            target_email = f"{self.box}@{self.domain}"
+        if self.api_key:
+            self.session.headers["Authorization"] = f"Bearer {self.api_key}"
 
-            check_mail_comp = self.components.get("frontend.components.check-mail")
-            if check_mail_comp and self.csrf:
-                change_payload = {
-                    "_token": self.csrf,
-                    "components": [
-                        {
-                            "snapshot": check_mail_comp["snapshot"],
-                            "updates": {
-                                "username": self.box,
-                                "domain": self.domain,
-                            },
-                            "calls": [
-                                {
-                                    "method": "checkEmailAddress",
-                                    "params": [],
-                                    "metadata": {},
-                                }
-                            ],
-                        }
-                    ],
-                }
-                try:
-                    change_resp = self.session.post(
-                        f"{self.BASE_URL}/livewire/update",
-                        headers=self.lw_headers,
-                        json=change_payload,
-                        timeout=30,
-                    )
-                    if change_resp.ok:
-                        for c in change_resp.json().get("components", []):
-                            if c.get("snapshot"):
-                                self.components["frontend.components.check-mail"]["snapshot"] = c["snapshot"]
-                        self.email = target_email
-                    else:
-                        self.email = default_email or target_email
-                except Exception as e:
-                    print(f"[Temp Mail] checkEmailAddress uyarisi: {e}")
-                    self.email = default_email or target_email
-            else:
-                self.email = default_email or target_email
+        # Proxy Yapılandırması (Dosyadaki mevcut proxy ayarlarıyla tam uyumlu)
+        if proxy_config is not None:
+            if proxy_mode == 1 and proxy_config:
+                self.session.proxies.update(proxy_config)
         else:
-            self.email = default_email
+            apply_temp_mail_proxy(self.session)
 
-        print(f"[Temp Mail] Olusturuldu: {self.email}")
-        return self.email
+    def get_available_domains(self) -> List[str]:
+        """Serviste o an aktif olan domain listesini çeker."""
+        try:
+            endpoint = f"{self.BASE_URL}/api/v1/domains" if self.api_key else f"{self.BASE_URL}/api/domains"
+            resp = self.session.get(endpoint, timeout=10)
+            if resp.ok:
+                data = resp.json()
+                domains = data.get("domains", [])
+                if isinstance(domains, list) and domains:
+                    return domains
+        except Exception as e:
+            print(f"[Poofy] Domain sorgu uyarısı: {e}")
 
-    def _build_poll_payload(self) -> dict:
-        api_components = []
-        for name in POLL_COMPONENTS:
-            comp = self.components.get(name)
-            if not comp:
-                continue
+        return WHITELIST_DOMAINS
 
-            if name == "frontend.components.inbox-message":
-                calls = [
-                    {
-                        "method": "__dispatch",
-                        "params": ["syncEmail", {"email": self.email}],
-                        "metadata": {},
-                    },
-                    {
-                        "method": "__dispatch",
-                        "params": ["fetchMessages", {}],
-                        "metadata": {},
-                    },
-                ]
-            else:
-                calls = [
-                    {
-                        "method": "__dispatch",
-                        "params": ["syncEmail", {"email": self.email}],
-                        "metadata": {},
-                    },
-                ]
-            api_components.append(
-                {
-                    "snapshot": comp["snapshot"],
-                    "updates": {},
-                    "calls": calls,
-                }
-            )
-        return {"_token": self.csrf, "components": api_components}
+    def get_email(self, local_part: Optional[Union[str, int]] = None, domain: Optional[str] = None, length: Optional[int] = None) -> str:
+        """Yeni bir geçici e-posta kutusu oluşturur ve adresini döner.
+        
+        Args:
+            local_part: İsteğe bağlı e-posta ön eki veya uzunluk (int girilirse).
+            domain: İsteğe bağlı domain.
+            length: Rastgele isim uzunluğu.
+            
+        Returns:
+            Oluşturulan e-posta adresi (örnek: u_k9d2f4a1@fansubupdate.com)
+        """
+        if isinstance(local_part, int):
+            length = local_part
+            local_part = None
 
-    def _extract_activation_link(self, text: str) -> str:
+        active_domains = self.get_available_domains()
+        
+        # Domain seçimi: Verilen -> Whitelist ile eşleşen ilk aktif -> Aktiflerin ilki
+        selected_domain = domain or self.domain
+        if not selected_domain:
+            for d in WHITELIST_DOMAINS:
+                if d in active_domains:
+                    selected_domain = d
+                    break
+        if not selected_domain:
+            selected_domain = active_domains[0] if active_domains else "fansubupdate.com"
+
+        name = local_part or generate_random_name(length or 8)
+
+        # 1. API Key varsa v1 endpoint'i kullan
+        if self.api_key:
+            payload = {
+                "name": name,
+                "domain": selected_domain,
+                "ttl_minutes": 60,
+            }
+            resp = self.session.post(f"{self.BASE_URL}/api/v1/inboxes", json=payload, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            self.inbox_id = data.get("id")
+            self.address = data.get("address")
+            self.password = data.get("password")
+        else:
+            # 2. Public Web API endpoint'i
+            payload = {
+                "localPart": name,
+                "domain": selected_domain,
+                "style": "name",
+            }
+            resp = self.session.post(f"{self.BASE_URL}/api/inboxes", json=payload, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            mailbox = data.get("mailbox", {})
+            self.inbox_id = mailbox.get("id")
+            self.address = mailbox.get("address")
+            self.password = data.get("password")
+
+        self.domain = selected_domain
+        self.email = self.address
+        self.box = name
+        self._seen_ids.clear()
+        print(f"[Poofy] E-posta oluşturuldu: {self.address} (ID: {self.inbox_id})")
+        return self.address
+
+    def get_messages(self) -> List[Dict[str, Any]]:
+        """Gelen kutusundaki e-posta listesini çeker."""
+        if not self.inbox_id:
+            raise ValueError("[Poofy] Önce get_email() çağrılarak bir posta kutusu oluşturulmalıdır!")
+
+        if self.api_key:
+            resp = self.session.get(f"{self.BASE_URL}/api/v1/inboxes/{self.inbox_id}/messages", timeout=15)
+            resp.raise_for_status()
+            return resp.json().get("messages", [])
+        else:
+            resp = self.session.get(f"{self.BASE_URL}/api/messages?mailbox={self.inbox_id}", timeout=15)
+            resp.raise_for_status()
+            return resp.json().get("messages", [])
+
+    def get_message_detail(self, message_id: str) -> Dict[str, Any]:
+        """Belirtilen mesajın detaylarını (özne, link, text, html vb.) çeker."""
+        try:
+            endpoint = f"{self.BASE_URL}/api/v1/messages/{message_id}" if self.api_key else f"{self.BASE_URL}/api/messages/{message_id}"
+            resp = self.session.get(endpoint, timeout=15)
+            if resp.ok:
+                data = resp.json()
+                return data.get("message", data)
+        except Exception:
+            pass
+
+        # Detay endpoint'i yoksa mesaj listesinden ilgili mesajı bul
+        for msg in self.get_messages():
+            if str(msg.get("id")) == str(message_id):
+                return msg
+
+        return {}
+
+    def _extract_activation_link(self, text: str) -> Optional[str]:
+        """E-posta içeriğinden aktivasyon / doğrulama linkini ayıklar."""
+        if not text:
+            return None
+
+        # 1. CyberLink özel trace linki (en yüksek öncelik)
         trace_links = re.findall(
             r'https?://membership\.cyberlink\.com/prog/event/autoedm/trace_mem\.jsp\?[^\s"\'<>]+',
             text,
         )
         for link in trace_links:
-            link = link.replace("&amp;", "&").rstrip("\"'")
-            if any(k in link for k in ["account-activate", "Activate", "active-member"]):
-                return link
+            clean = link.replace("&amp;", "&").rstrip("\"'.,")
+            if any(k in clean for k in ["account-activate", "Activate", "active-member"]):
+                return clean
 
+        # 2. Genel activate / verify / confirm / token / signup linkleri
         general_links = re.findall(
-            r'https?://[^\s"\'<>]*(?:cyberlink|myedit)[^\s"\'<>]*(?:activate|confirm|verify|token)[^\s"\'<>]*',
+            r'https?://[^\s"\'<>]+(?:activate|confirm|verify|token|signup)[^\s"\'<>]*',
             text,
             re.IGNORECASE,
         )
         for link in general_links:
-            link = link.replace("&amp;", "&").rstrip("\"'")
-            if any(k in link for k in ["activate", "confirm", "verify"]):
-                return link
-
-        try:
-            soup = BeautifulSoup(text, "html.parser")
-            for a in soup.find_all("a", href=True):
-                href = a["href"].replace("&amp;", "&").rstrip("\"'")
-                if any(k in href for k in ["trace_mem", "activate", "confirm", "verify", "token"]) and any(
-                    d in href for d in ["cyberlink", "myedit"]
-                ):
-                    return href
-        except Exception:
-            pass
+            clean = link.replace("&amp;", "&").rstrip("\"'.,")
+            if not any(ign in clean for ign in ["poofy.email", "w3.org", "schema.org"]):
+                return clean
 
         if trace_links:
-            return trace_links[0].replace("&amp;", "&").rstrip("\"'")
+            return trace_links[0].replace("&amp;", "&").rstrip("\"'.,")
+
+        # 3. Genel bağlantı (poofy harici)
+        links = re.findall(r'https?://[^\s"\'<>]+', text)
+        for link in links:
+            cleaned = link.replace("&amp;", "&").rstrip("\"'.,")
+            if not any(ign in cleaned for ign in ["poofy.email", "w3.org", "schema.org"]):
+                return cleaned
 
         return None
 
-    def _extract_code(self, text: str) -> str:
+    def _extract_code(self, text: str, detail_code: Optional[str] = None) -> Optional[str]:
+        """E-posta detayından veya metninden OTP/onay kodunu ayıklar."""
+        if detail_code:
+            return str(detail_code).strip()
+
+        if not text:
+            return None
+
         codes = re.findall(r"\b\d{4,8}\b", text)
         return codes[0] if codes else None
 
-    def _fetch_message_content(self, msg_id, inbox_snapshot) -> str:
-        view_payload = {
-            "_token": self.csrf,
-            "components": [
-                {
-                    "snapshot": inbox_snapshot,
-                    "updates": {},
-                    "calls": [{"method": "updateView", "params": [msg_id], "metadata": {}}],
-                }
-            ],
-        }
-        view_resp = self.session.post(
-            f"{self.BASE_URL}/livewire/update",
-            headers=self.lw_headers,
-            json=view_payload,
-            timeout=30,
-        )
-        if not view_resp.ok:
-            return ""
-
-        all_text = []
-        for comp_resp in view_resp.json().get("components", []):
-            effects_html = comp_resp.get("effects", {}).get("html", "")
-            if effects_html:
-                all_text.append(effects_html)
-            snap_str = comp_resp.get("snapshot", "")
-            if snap_str:
-                try:
-                    snap = json.loads(snap_str)
-                    msgs = snap.get("data", {}).get("messages", [])
-                    if msgs and isinstance(msgs[0], list):
-                        for group in msgs[0]:
-                            if isinstance(group, list):
-                                for m in group:
-                                    if isinstance(m, dict) and "content" in m:
-                                        all_text.append(m["content"])
-                except Exception:
-                    pass
-        return "\n".join(all_text)
-
-    def wait_for_activation_link(self, timeout: int = 60) -> str:
-        print(f"[Temp Mail] Gelen kutusu sorgulaniyor ({self.email})...")
+    def wait_for_message(self, timeout: int = 60, interval: int = 3) -> Dict[str, Any]:
+        """Gelen kutusuna yeni bir e-posta düşene kadar bekler."""
+        print(f"[Poofy] Gelen kutusu bekleniyor ({self.address})...")
         deadline = time.time() + timeout
-        inbox_snapshot = None
 
         while time.time() < deadline:
-            inbox_keys = []
             try:
-                payload = self._build_poll_payload()
-                resp = self.session.post(
-                    f"{self.BASE_URL}/livewire/update",
-                    headers=self.lw_headers,
-                    json=payload,
-                    timeout=20,
-                )
-                if resp.ok:
-                    data = resp.json()
-                    resp_comps = data.get("components", [])
-                    active_names = [n for n in POLL_COMPONENTS if n in self.components]
-
-                    for i, rc in enumerate(resp_comps):
-                        new_snap = rc.get("snapshot", "")
-                        if not new_snap or i >= len(active_names):
-                            continue
-                        target_name = active_names[i]
-                        self.components[target_name]["snapshot"] = new_snap
-
-                        if target_name == "frontend.components.inbox-message":
-                            try:
-                                snap = json.loads(new_snap)
-                                inbox_msgs = snap.get("data", {}).get("inbox_messages", [])
-                                if isinstance(inbox_msgs, list):
-                                    for item in inbox_msgs:
-                                        if isinstance(item, dict) and "keys" in item:
-                                            inbox_keys = item["keys"]
-                                            inbox_snapshot = new_snap
-                            except Exception:
-                                pass
+                messages = self.get_messages()
+                for msg in messages:
+                    msg_id = str(msg.get("id"))
+                    if msg_id not in self._seen_ids:
+                        self._seen_ids.add(msg_id)
+                        print(f"[+] Yeni e-posta alındı! ID: {msg_id} - Konu: {msg.get('subject', 'Konusuz')}")
+                        detail = self.get_message_detail(msg_id) or msg
+                        return detail
             except Exception as e:
-                print(f"[Temp Mail] Poll uyarisi: {e}")
+                print(f"[Poofy] Mesaj sorgu uyarısı: {e}")
 
-            unseen_keys = [k for k in inbox_keys if k not in self._seen_ids]
-            if unseen_keys:
-                for msg_id in unseen_keys:
-                    self._seen_ids.add(msg_id)
-                    print(f"[+] Yeni mail alindi! ID: {msg_id}")
-                    content = self._fetch_message_content(msg_id, inbox_snapshot)
-                    link = self._extract_activation_link(content)
-                    if link:
-                        print(f"  -> Aktivasyon linki bulundu: {link[:80]}...")
-                        return link
+            time.sleep(interval)
 
-            time.sleep(3)
+        raise TimeoutError(f"[Poofy] {timeout} saniye içinde yeni e-posta gelmedi!")
 
-        raise TimeoutError("Aktivasyon maili gelmedi!")
-
-    def wait_for_code(self, timeout: int = 60) -> str:
-        print(f"[Temp Mail] Kod bekleniyor ({self.email})...")
+    def wait_for_activation_link(self, timeout: int = 60, interval: int = 3) -> str:
+        """Gelen e-postadaki onay/aktivasyon linkini bekler ve döner."""
+        print(f"[Poofy] Aktivasyon linki bekleniyor ({self.address})...")
         deadline = time.time() + timeout
-        inbox_snapshot = None
 
         while time.time() < deadline:
-            inbox_keys = []
             try:
-                payload = self._build_poll_payload()
-                resp = self.session.post(
-                    f"{self.BASE_URL}/livewire/update",
-                    headers=self.lw_headers,
-                    json=payload,
-                    timeout=20,
-                )
-                if resp.ok:
-                    data = resp.json()
-                    resp_comps = data.get("components", [])
-                    active_names = [n for n in POLL_COMPONENTS if n in self.components]
+                messages = self.get_messages()
+                for msg in messages:
+                    msg_id = str(msg.get("id"))
+                    if msg_id not in self._seen_ids:
+                        self._seen_ids.add(msg_id)
+                        print(f"[+] Yeni e-posta geldi! ID: {msg_id}")
+                        detail = self.get_message_detail(msg_id) or msg
 
-                    for i, rc in enumerate(resp_comps):
-                        new_snap = rc.get("snapshot", "")
-                        if not new_snap or i >= len(active_names):
-                            continue
-                        target_name = active_names[i]
-                        self.components[target_name]["snapshot"] = new_snap
+                        # 1. API doğrudan link sağladı mı? (verify_link, link, verification_link)
+                        api_link = (
+                            detail.get("verify_link")
+                            or detail.get("link")
+                            or detail.get("verification_link")
+                            or msg.get("verify_link")
+                            or msg.get("link")
+                        )
+                        if api_link:
+                            print(f"[✓] Poofy API linki yakaladı: {api_link}")
+                            return api_link
 
-                        if target_name == "frontend.components.inbox-message":
-                            try:
-                                snap = json.loads(new_snap)
-                                inbox_msgs = snap.get("data", {}).get("inbox_messages", [])
-                                if isinstance(inbox_msgs, list):
-                                    for item in inbox_msgs:
-                                        if isinstance(item, dict) and "keys" in item:
-                                            inbox_keys = item["keys"]
-                                            inbox_snapshot = new_snap
-                            except Exception:
-                                pass
+                        content = (
+                            (detail.get("html") or detail.get("html_body") or "")
+                            + "\n"
+                            + (detail.get("text") or detail.get("text_body") or "")
+                            + "\n"
+                            + (detail.get("snippet") or "")
+                        )
+                        link = self._extract_activation_link(content)
+                        if link:
+                            print(f"[✓] Aktivasyon linki bulundu: {link}")
+                            return link
             except Exception as e:
-                print(f"[Temp Mail] Poll uyarisi: {e}")
+                print(f"[Poofy] Mesaj sorgu uyarısı: {e}")
 
-            unseen_keys = [k for k in inbox_keys if k not in self._seen_ids]
-            if unseen_keys:
-                for msg_id in unseen_keys:
-                    self._seen_ids.add(msg_id)
-                    print(f"[+] Yeni mail alindi! ID: {msg_id}")
-                    content = self._fetch_message_content(msg_id, inbox_snapshot)
-                    code = self._extract_code(content)
-                    if code:
-                        print(f"[+] Dogrulama kodu bulundu: {code}")
-                        return code
+            time.sleep(interval)
 
-            time.sleep(3)
+        raise TimeoutError(f"[Poofy] {timeout} saniye içinde aktivasyon linki gelmedi!")
 
-        raise TimeoutError("Dogrulama kodu gelmedi!")
+    def wait_for_code(self, timeout: int = 60, interval: int = 3) -> str:
+        """Gelen e-postadaki OTP / doğrulama kodunu bekler ve döner."""
+        print(f"[Poofy] Doğrulama kodu bekleniyor ({self.address})...")
+        deadline = time.time() + timeout
+
+        while time.time() < deadline:
+            try:
+                messages = self.get_messages()
+                for msg in messages:
+                    msg_id = str(msg.get("id"))
+                    if msg_id not in self._seen_ids:
+                        self._seen_ids.add(msg_id)
+                        print(f"[+] Yeni e-posta geldi! ID: {msg_id}")
+                        detail = self.get_message_detail(msg_id) or msg
+
+                        # 1. API doğrudan OTP/kod sağladı mı? (otp_code, code)
+                        code = (
+                            detail.get("otp_code")
+                            or detail.get("code")
+                            or msg.get("otp_code")
+                            or msg.get("code")
+                        )
+                        if code:
+                            print(f"[✓] Poofy API kodu yakaladı: {code}")
+                            return str(code)
+
+                        content = (
+                            (detail.get("html") or detail.get("html_body") or "")
+                            + "\n"
+                            + (detail.get("text") or detail.get("text_body") or "")
+                        )
+                        found_code = self._extract_code(content)
+                        if found_code:
+                            print(f"[✓] Doğrulama kodu bulundu: {found_code}")
+                            return found_code
+            except Exception as e:
+                print(f"[Poofy] Mesaj sorgu uyarısı: {e}")
+
+            time.sleep(interval)
+
+        raise TimeoutError(f"[Poofy] {timeout} saniye içinde doğrulama kodu gelmedi!")
+
+# Geriye dönük uyumluluk ve alternatif kullanım için alias:
+PoofyMailClient = TempMailClient
+
 
 # ================= MemberAuth Enkripsyon =================
 
@@ -1980,6 +2159,7 @@ def signup(email: str, password: str, lang: str = "enu", country: str = "US"):
     }
     payload, aes_key = create_member_auth_payload(user_data)
     res = requests.post(SIGNUP_URL, json=payload, headers=MEMBER_HEADERS, timeout=30)
+    print(f"[DEBUG SIGNUP] HTTP {res.status_code} | Yanit: {repr(res.text[:500])}")
     res.raise_for_status()
     body = res.json()
     if body.get("status") == "SUCCESS" and "info" in body:
@@ -2133,7 +2313,7 @@ def check_task_bonus(member_token: str, feature_id: str = "TextToImage"):
         return None
 
 def collect_all_bonuses(member_token: str):
-    """Kullanicinin tum aktif task bonuslarini (kredilerini) ve gunluk bonusunu toplar (toplam 311 kredi)."""
+    """Kullanicinin tum aktif task bonuslarini (kredilerini) ve gunluk bonusunu toplar (toplam 334 kredi)."""
     print("\n[Bonuses] Tum gunluk ve gorev bonuslari toplaniyor...")
     
     # 1. Gunluk Bonus (+3 Kredi)
@@ -2143,7 +2323,7 @@ def collect_all_bonuses(member_token: str):
     except Exception as e:
         print(f"  [!] Gunluk bonus toplama hatasi: {e}")
         
-    # 2. Aktif Gorev Bonuslari (Toplam 308 Kredi + 3 Gunluk = 311 Kredi)
+    # 2. Aktif Gorev Bonuslari (Toplam 331 Kredi + 3 Gunluk = 334 Kredi)
     active_tasks = [
         "TextToImage",          # 14 Kredi
         "AICollage",            # 3 Kredi
@@ -2160,6 +2340,9 @@ def collect_all_bonuses(member_token: str):
         "AITryOn",              # 6 Kredi (Genel Kiyafet Deneme)
         "TrendingAITemplates",  # 6 Kredi (Trend AI Sablonlari)
         "AIHairstyleV2",        # 6 Kredi (AI Sac Modeli)
+        "AIPhotoSlideshow",     # 6 Kredi (AI Foto Slayt Gosterisi)
+        "AIHeadshotV2",         # 6 Kredi (AI Portre / Vesikalik)
+        "AIMusicGeneratorV2",   # 11 Kredi (AI Muzik Uretici)
     ]
     
     for task_id in active_tasks:
@@ -2394,6 +2577,14 @@ class AuthExpiredError(Exception):
     pass
 
 
+# ==============================================================================
+# CYBERLINK LIVE ACTION CREDITS MAPPING (Direct from CyberLink Featurelist SID ae44600d)
+# ==============================================================================
+CYBERLINK_ACTION_CREDITS = json.loads(
+    r"""{"genvideo_1_sec_alibaba_happyhorse1.0_enable_1080p":8,"genvideo_1_sec_alibaba_happyhorse1.0_none_1080p":8,"genvideo_1_sec_bytedance_seedance2.0std_enable_720p":10,"genvideo_1_sec_bytedance_seedance2.0std_none_720p":10,"genvideo_1_sec_kling_o3pro_enable_1080p":6,"genvideo_1_sec_kling_o3pro_none_1080p":5,"genimage_1_img_google_gemini3pro_custom":3,"genimage_1_img_google_gemini3pro_template":6,"genimage_1_img_google_gemini3pro_template_none":6,"genimage_1_img_openai_gptimage2_custom":6,"genimage_1_img_openai_gptimage2_custom_enable":3,"genimage_1_img_openai_gptimage2_custom_none":3,"genimage_1_img_openai_gptimage2_template":6,"genimage_1_img_openai_gptimage2_template_none":3,"genvideo_1_sec_bytedance_seedance2.5std_enable_enable_720p":14,"genvideo_1_sec_bytedance_seedance2.5std_enable_none_720p":14,"genvideo_1_sec_bytedance_seedance2.5std_none_enable_720p":14,"genvideo_1_sec_bytedance_seedance2.5std_none_none_720p":14,"genimage_1_img_google_gemini3.1flash_custom_none":3,"genimage_1_img_google_gemini3.1flash_template_none":8,"genimage_1_img_google_gemini3pro_custom_enable":6,"genimage_1_img_openai_gptimage2.5sunburst_template_none":8,"genvideo_1_video_cyberlink_remotion_export":1,"genvideo_60_img_cyberlink_remotion_edit":5,"genimage_1_img_cyberlink_fluxdev1_none":1,"genimage_1_img_google_gemini3pro_enable":6,"genimage_1_img_openai_gptimage2_enable":5,"genimage_1_img_google_gemini2.5flash_template_none":3,"genimage_1_img_google_gemini3.1flash_custom_enable_pet":6,"genimage_1_img_google_gemini3.1flash_custom_none_pet":6,"genimage_1_img_google_gemini3pro_template_none_pet":6,"genimage_1_img_kling_o1_custom_enable":6,"genimage_1_img_kling_o1_custom_none":3,"genimage_1_img_kling_o1_template_none":3,"genimage_1_img_kling_o3_custom_enable":6,"genimage_1_img_kling_o3_custom_none":6,"genimage_1_img_alibaba_qwenimage3.0_enable":3,"genimage_1_img_alibaba_qwenimage3.0_none":3,"genimage_1_img_alibaba_qwenimage3.0pro_enable":5,"genimage_1_img_alibaba_qwenimage3.0pro_none":5,"genimage_1_img_blackforest_flux2pro":5,"genimage_1_img_blackforest_flux2pro_enable":6,"genimage_1_img_blackforest_flux2pro_none":3,"genimage_1_img_bytedance_seedream5.0lite_enable":3,"genimage_1_img_bytedance_seedream5.0lite_none":3,"genimage_1_img_bytedance_seedream5.0pro_enable":5,"genimage_1_img_bytedance_seedream5.0pro_none":5,"genimage_1_img_cyberlink_qwen2511_enable":2,"genimage_1_img_cyberlink_qwen2511_none":2,"genimage_1_img_google_gemini2.5flash":2,"genimage_1_img_google_gemini2.5flash_enable":2,"genimage_1_img_google_gemini2.5flash_none":2,"genimage_1_img_google_gemini3.1flash_enable":5,"genimage_1_img_google_gemini3.1flashlite_enable":2,"genimage_1_img_google_gemini3.1flashlite_none":2,"genimage_1_img_google_gemini3.1flash_none":5,"genimage_1_img_google_gemini3pro":6,"genimage_1_img_google_gemini3pro_none":6,"genimage_1_img_google_gemininanobanana2.1_enable":4,"genimage_1_img_google_gemininanobanana2.1_none":4,"genimage_1_img_kling_o3_enable":3,"genimage_1_img_kling_o3_none":3,"genimage_1_img_openai_gptimage1.5":3,"genimage_1_img_openai_gptimage2.5flare_enable":5,"genimage_1_img_openai_gptimage2.5flare_none":5,"genimage_1_img_openai_gptimage2.5sunburst_enable":5,"genimage_1_img_openai_gptimage2.5sunburst_none":5,"genimage_1_img_openai_gptimage2_none":5,"genvideo_1_sec_alibaba_custom_happyhorse1.0_enable_single_1080p":8,"genvideo_1_sec_alibaba_custom_happyhorse1.0_enable_single_720p":5,"genvideo_1_sec_alibaba_custom_happyhorse1.0_enable_startend_1080p":8,"genvideo_1_sec_alibaba_custom_happyhorse1.0_enable_startend_720p":5,"genvideo_1_sec_alibaba_custom_happyhorse1.0_none_single_1080p":8,"genvideo_1_sec_alibaba_custom_happyhorse1.0_none_single_720p":5,"genvideo_1_sec_alibaba_custom_happyhorse1.0_none_startend_1080p":8,"genvideo_1_sec_alibaba_custom_happyhorse1.0_none_startend_720p":5,"genvideo_1_sec_alibaba_custom_happyhorse1.1_enable_single_1080p":8,"genvideo_1_sec_alibaba_custom_happyhorse1.1_enable_single_720p":5,"genvideo_1_sec_alibaba_custom_happyhorse1.1_enable_startend_1080p":8,"genvideo_1_sec_alibaba_custom_happyhorse1.1_enable_startend_720p":5,"genvideo_1_sec_alibaba_custom_happyhorse1.1_none_single_1080p":8,"genvideo_1_sec_alibaba_custom_happyhorse1.1_none_single_720p":5,"genvideo_1_sec_alibaba_custom_happyhorse1.1_none_startend_1080p":8,"genvideo_1_sec_alibaba_custom_happyhorse1.1_none_startend_720p":5,"genvideo_1_sec_alibaba_custom_wan2.7_enable_single_1080p":8,"genvideo_1_sec_alibaba_custom_wan2.7_enable_single_720p":5,"genvideo_1_sec_alibaba_custom_wan2.7_enable_startend_1080p":8,"genvideo_1_sec_alibaba_custom_wan2.7_enable_startend_720p":5,"genvideo_1_sec_alibaba_custom_wan2.7_none_single_1080p":8,"genvideo_1_sec_alibaba_custom_wan2.7_none_single_720p":5,"genvideo_1_sec_alibaba_custom_wan2.7_none_startend_1080p":8,"genvideo_1_sec_alibaba_custom_wan2.7_none_startend_720p":5,"genvideo_1_sec_alibaba_custom_wan3.0_enable_single_1080p":8,"genvideo_1_sec_alibaba_custom_wan3.0_enable_single_480p":2,"genvideo_1_sec_alibaba_custom_wan3.0_enable_single_720p":4,"genvideo_1_sec_alibaba_custom_wan3.0_enable_startend_1080p":8,"genvideo_1_sec_alibaba_custom_wan3.0_enable_startend_480p":2,"genvideo_1_sec_alibaba_custom_wan3.0_enable_startend_720p":4,"genvideo_1_sec_alibaba_custom_wan3.0_none_single_1080p":8,"genvideo_1_sec_alibaba_custom_wan3.0_none_single_480p":2,"genvideo_1_sec_alibaba_custom_wan3.0_none_single_720p":4,"genvideo_1_sec_alibaba_custom_wan3.0_none_startend_1080p":8,"genvideo_1_sec_alibaba_custom_wan3.0_none_startend_480p":2,"genvideo_1_sec_alibaba_custom_wan3.0_none_startend_720p":4,"genvideo_1_sec_blackforest_custom_flux3_enable_single_1080p":15,"genvideo_1_sec_blackforest_custom_flux3_enable_single_2k":20,"genvideo_1_sec_blackforest_custom_flux3_enable_single_4k":35,"genvideo_1_sec_blackforest_custom_flux3_enable_single_720p":9,"genvideo_1_sec_blackforest_custom_flux3_enable_startend_1080p":15,"genvideo_1_sec_blackforest_custom_flux3_enable_startend_2k":20,"genvideo_1_sec_blackforest_custom_flux3_enable_startend_4k":35,"genvideo_1_sec_blackforest_custom_flux3_enable_startend_720p":9,"genvideo_1_sec_blackforest_custom_flux3_none_single_1080p":15,"genvideo_1_sec_blackforest_custom_flux3_none_single_2k":20,"genvideo_1_sec_blackforest_custom_flux3_none_single_4k":35,"genvideo_1_sec_blackforest_custom_flux3_none_single_720p":9,"genvideo_1_sec_blackforest_custom_flux3_none_startend_1080p":15,"genvideo_1_sec_blackforest_custom_flux3_none_startend_2k":20,"genvideo_1_sec_blackforest_custom_flux3_none_startend_4k":35,"genvideo_1_sec_blackforest_custom_flux3_none_startend_720p":9,"genvideo_1_sec_bytedance_custom_seedance2.0fast_enable_single_480p":4,"genvideo_1_sec_bytedance_custom_seedance2.0fast_enable_single_720p":8,"genvideo_1_sec_bytedance_custom_seedance2.0fast_enable_startend_480p":4,"genvideo_1_sec_bytedance_custom_seedance2.0fast_enable_startend_720p":8,"genvideo_1_sec_bytedance_custom_seedance2.0fast_none_single_480p":4,"genvideo_1_sec_bytedance_custom_seedance2.0fast_none_single_720p":8,"genvideo_1_sec_bytedance_custom_seedance2.0fast_none_startend_480p":4,"genvideo_1_sec_bytedance_custom_seedance2.0fast_none_startend_720p":8,"genvideo_1_sec_bytedance_custom_seedance2.0mini_enable_single_480p":3,"genvideo_1_sec_bytedance_custom_seedance2.0mini_enable_single_720p":5,"genvideo_1_sec_bytedance_custom_seedance2.0mini_enable_startend_480p":3,"genvideo_1_sec_bytedance_custom_seedance2.0mini_enable_startend_720p":5,"genvideo_1_sec_bytedance_custom_seedance2.0mini_none_single_480p":3,"genvideo_1_sec_bytedance_custom_seedance2.0mini_none_single_720p":5,"genvideo_1_sec_bytedance_custom_seedance2.0mini_none_startend_480p":3,"genvideo_1_sec_bytedance_custom_seedance2.0mini_none_startend_720p":5,"genvideo_1_sec_bytedance_custom_seedance2.0std_enable_single_1080p":20,"genvideo_1_sec_bytedance_custom_seedance2.0std_enable_single_480p":5,"genvideo_1_sec_bytedance_custom_seedance2.0std_enable_single_4K":34,"genvideo_1_sec_bytedance_custom_seedance2.0std_enable_single_720p":10,"genvideo_1_sec_bytedance_custom_seedance2.0std_enable_startend_1080p":20,"genvideo_1_sec_bytedance_custom_seedance2.0std_enable_startend_480p":5,"genvideo_1_sec_bytedance_custom_seedance2.0std_enable_startend_4K":34,"genvideo_1_sec_bytedance_custom_seedance2.0std_enable_startend_720p":10,"genvideo_1_sec_bytedance_custom_seedance2.0std_none_single_1080p":20,"genvideo_1_sec_bytedance_custom_seedance2.0std_none_single_480p":5,"genvideo_1_sec_bytedance_custom_seedance2.0std_none_single_4K":34,"genvideo_1_sec_bytedance_custom_seedance2.0std_none_single_720p":10,"genvideo_1_sec_bytedance_custom_seedance2.0std_none_startend_1080p":20,"genvideo_1_sec_bytedance_custom_seedance2.0std_none_startend_480p":5,"genvideo_1_sec_bytedance_custom_seedance2.0std_none_startend_4K":34,"genvideo_1_sec_bytedance_custom_seedance2.0std_none_startend_720p":10,"genvideo_1_sec_bytedance_custom_seedance2.5std_enable_single_1080p":28,"genvideo_1_sec_bytedance_custom_seedance2.5std_enable_single_480p":6,"genvideo_1_sec_bytedance_custom_seedance2.5std_enable_single_720p":14,"genvideo_1_sec_bytedance_custom_seedance2.5std_enable_startend_1080p":28,"genvideo_1_sec_bytedance_custom_seedance2.5std_enable_startend_480p":6,"genvideo_1_sec_bytedance_custom_seedance2.5std_enable_startend_720p":14,"genvideo_1_sec_bytedance_custom_seedance2.5std_none_single_1080p":28,"genvideo_1_sec_bytedance_custom_seedance2.5std_none_single_480p":6,"genvideo_1_sec_bytedance_custom_seedance2.5std_none_single_720p":14,"genvideo_1_sec_bytedance_custom_seedance2.5std_none_startend_1080p":28,"genvideo_1_sec_bytedance_custom_seedance2.5std_none_startend_480p":6,"genvideo_1_sec_bytedance_custom_seedance2.5std_none_startend_720p":14,"genvideo_1_sec_google_custom_geminiomni1.1flash_enable_single_1080p":8,"genvideo_1_sec_google_custom_geminiomni1.1flash_enable_single_360p":2,"genvideo_1_sec_google_custom_geminiomni1.1flash_enable_single_4k":15,"genvideo_1_sec_google_custom_geminiomni1.1flash_enable_single_720p":5,"genvideo_1_sec_google_custom_geminiomni1.1flash_enable_startend_1080p":8,"genvideo_1_sec_google_custom_geminiomni1.1flash_enable_startend_360p":2,"genvideo_1_sec_google_custom_geminiomni1.1flash_enable_startend_4k":15,"genvideo_1_sec_google_custom_geminiomni1.1flash_enable_startend_720p":5,"genvideo_1_sec_google_custom_geminiomni1.1flash_none_single_1080p":8,"genvideo_1_sec_google_custom_geminiomni1.1flash_none_single_360p":2,"genvideo_1_sec_google_custom_geminiomni1.1flash_none_single_4k":15,"genvideo_1_sec_google_custom_geminiomni1.1flash_none_single_720p":5,"genvideo_1_sec_google_custom_geminiomni1.1flash_none_startend_1080p":8,"genvideo_1_sec_google_custom_geminiomni1.1flash_none_startend_360p":2,"genvideo_1_sec_google_custom_geminiomni1.1flash_none_startend_4k":15,"genvideo_1_sec_google_custom_geminiomni1.1flash_none_startend_720p":5,"genvideo_1_sec_google_custom_geminiomniflash_enable_single_720p":5,"genvideo_1_sec_google_custom_geminiomniflash_enable_startend_720p":5,"genvideo_1_sec_google_custom_geminiomniflash_none_single_720p":5,"genvideo_1_sec_google_custom_geminiomniflash_none_startend_720p":5,"genvideo_1_sec_google_custom_veo3.1fast_enable_single":8,"genvideo_1_sec_google_custom_veo3.1fast_enable_startend":8,"genvideo_1_sec_google_custom_veo3.1fast_none_single":5,"genvideo_1_sec_google_custom_veo3.1fast_none_startend":5,"genvideo_1_sec_google_custom_veo3.1lite_enable_single_1080p":5,"genvideo_1_sec_google_custom_veo3.1lite_enable_single_720p":3,"genvideo_1_sec_google_custom_veo3.1lite_enable_startend_1080p":5,"genvideo_1_sec_google_custom_veo3.1lite_enable_startend_720p":3,"genvideo_1_sec_google_custom_veo3.1lite_none_single_1080p":3,"genvideo_1_sec_google_custom_veo3.1lite_none_single_720p":2,"genvideo_1_sec_google_custom_veo3.1lite_none_startend_1080p":3,"genvideo_1_sec_google_custom_veo3.1lite_none_startend_720p":2,"genvideo_1_sec_google_custom_veo3.1std_enable_single":18,"genvideo_1_sec_google_custom_veo3.1std_enable_startend":18,"genvideo_1_sec_google_custom_veo3.1std_none_single":10,"genvideo_1_sec_google_custom_veo3.1std_none_startend":10,"genvideo_1_sec_kling_custom_2.5pro_enable_single":5,"genvideo_1_sec_kling_custom_2.5pro_enable_startend":5,"genvideo_1_sec_kling_custom_2.5pro_none_single":5,"genvideo_1_sec_kling_custom_2.5pro_none_startend":5,"genvideo_1_sec_kling_custom_2.5std_enable_single":3,"genvideo_1_sec_kling_custom_2.5std_none_single":3,"genvideo_1_sec_kling_custom_2.6pro_enable_single":8,"genvideo_1_sec_kling_custom_2.6pro_enable_startend":8,"genvideo_1_sec_kling_custom_2.6pro_none_single":5,"genvideo_1_sec_kling_custom_2.6pro_none_startend":5,"genvideo_1_sec_kling_custom_3.0pro_enable_single_1080p":8,"genvideo_1_sec_kling_custom_3.0pro_enable_startend_1080p":8,"genvideo_1_sec_kling_custom_3.0pro_none_single_1080p":5,"genvideo_1_sec_kling_custom_3.0pro_none_startend_1080p":5,"genvideo_1_sec_kling_custom_3.0std_enable_single_720p":6,"genvideo_1_sec_kling_custom_3.0std_enable_startend_720p":6,"genvideo_1_sec_kling_custom_3.0std_none_single_720p":4,"genvideo_1_sec_kling_custom_3.0std_none_startend_720p":4,"genvideo_1_sec_kling_custom_4.0flash_enable_single_720p":6,"genvideo_1_sec_kling_custom_4.0flash_enable_startend_720p":6,"genvideo_1_sec_kling_custom_4.0std_enable_single_1080p":14,"genvideo_1_sec_kling_custom_4.0std_enable_single_720p":9,"genvideo_1_sec_kling_custom_4.0std_enable_startend_1080p":14,"genvideo_1_sec_kling_custom_4.0std_enable_startend_720p":9,"genvideo_1_sec_kling_custom_o1pro_enable_single":6,"genvideo_1_sec_kling_custom_o1pro_enable_startend":6,"genvideo_1_sec_kling_custom_o1pro_none_single":6,"genvideo_1_sec_kling_custom_o1pro_none_startend":6,"genvideo_1_sec_kling_custom_o1std_enable_single":4,"genvideo_1_sec_kling_custom_o1std_enable_startend":4,"genvideo_1_sec_kling_custom_o1std_none_single":4,"genvideo_1_sec_kling_custom_o1std_none_startend":4,"genvideo_1_sec_kling_custom_o3pro_enable_single_1080p":6,"genvideo_1_sec_kling_custom_o3pro_enable_startend_1080p":6,"genvideo_1_sec_kling_custom_o3pro_none_single_1080p":5,"genvideo_1_sec_kling_custom_o3pro_none_startend_1080p":5,"genvideo_1_sec_kling_custom_o3std_enable_single_720p":5,"genvideo_1_sec_kling_custom_o3std_enable_startend_720p":5,"genvideo_1_sec_kling_custom_o3std_none_single_720p":4,"genvideo_1_sec_kling_custom_o3std_none_startend_720p":4,"genvideo_1_sec_minimax_custom_minimaxh3_enable_single_2k":8,"genvideo_1_sec_minimax_custom_minimaxh3_enable_single_768p":5,"genvideo_1_sec_minimax_custom_minimaxh3_enable_startend_2k":8,"genvideo_1_sec_minimax_custom_minimaxh3_enable_startend_768p":5,"genvideo_1_sec_minimax_custom_minimaxh3max_enable_single_480p":3,"genvideo_1_sec_minimax_custom_minimaxh3max_enable_single_768p":5,"genvideo_1_sec_minimax_custom_minimaxh3max_enable_startend_480p":3,"genvideo_1_sec_minimax_custom_minimaxh3max_enable_startend_768p":5,"genvideo_1_sec_minimax_custom_minimaxh3max_none_single_480p":3,"genvideo_1_sec_minimax_custom_minimaxh3max_none_single_768p":5,"genvideo_1_sec_minimax_custom_minimaxh3max_none_startend_480p":3,"genvideo_1_sec_minimax_custom_minimaxh3max_none_startend_768p":5,"genvideo_1_sec_minimax_custom_minimaxh3_none_single_2k":8,"genvideo_1_sec_minimax_custom_minimaxh3_none_single_768p":5,"genvideo_1_sec_minimax_custom_minimaxh3_none_startend_2k":8,"genvideo_1_sec_minimax_custom_minimaxh3_none_startend_768p":5,"genvideo_1_sec_motivai_custom_pixverse6_enable_single_1080p":4,"genvideo_1_sec_motivai_custom_pixverse6_enable_single_720p":2,"genvideo_1_sec_motivai_custom_pixverse6_enable_startend_1080p":6,"genvideo_1_sec_motivai_custom_pixverse6_enable_startend_720p":3,"genvideo_1_sec_motivai_custom_pixverse6_none_single_1080p":4,"genvideo_1_sec_motivai_custom_pixverse6_none_single_720p":2,"genvideo_1_sec_motivai_custom_pixverse6_none_startend_1080p":6,"genvideo_1_sec_motivai_custom_pixverse6_none_startend_720p":3,"genvideo_1_sec_openai_custom_sora2pro_enable_single":18,"genvideo_1_sec_openai_custom_sora2pro_none_single":18,"genvideo_1_sec_openai_custom_sora2std_enable_single":6,"genvideo_1_sec_openai_custom_sora2std_none_single":6,"genvideo_1_sec_runway_custom_gen4turbo_enable_single":3,"genvideo_1_sec_runway_custom_gen4turbo_none_single":3,"genvideo_1_sec_vidu_custom_q2pro_enable_single":5,"genvideo_1_sec_vidu_custom_q2pro_enable_startend":5,"genvideo_1_sec_vidu_custom_q2pro_none_single":5,"genvideo_1_sec_vidu_custom_q2pro_none_startend":5,"genvideo_1_sec_vidu_custom_q2turbo_enable_single":3,"genvideo_1_sec_vidu_custom_q2turbo_enable_startend":3,"genvideo_1_sec_vidu_custom_q2turbo_none_single":3,"genvideo_1_sec_vidu_custom_q2turbo_none_startend":3,"genvideo_1_sec_vidu_custom_q3pro_enable_single_1080p":6,"genvideo_1_sec_vidu_custom_q3pro_enable_startend_1080p":6,"genvideo_1_sec_vidu_custom_q3pro_none_single_1080p":6,"genvideo_1_sec_vidu_custom_q3pro_none_startend_1080p":6,"genvideo_1_sec_vidu_custom_q3turbo_enable_single_720p":3,"genvideo_1_sec_vidu_custom_q3turbo_enable_startend_720p":3,"genvideo_1_sec_vidu_custom_q3turbo_none_single_720p":3,"genvideo_1_sec_vidu_custom_q3turbo_none_startend_720p":3,"genvideo_1_sec_vidu_custom_q4_enable_single_1080p":6,"genvideo_1_sec_vidu_custom_q4_enable_single_2k":9,"genvideo_1_sec_vidu_custom_q4_enable_single_4k":19,"genvideo_1_sec_vidu_custom_q4_enable_single_540p":2,"genvideo_1_sec_vidu_custom_q4_enable_single_720p":5,"genvideo_1_sec_vidu_custom_q4_enable_startend_1080p":6,"genvideo_1_sec_vidu_custom_q4_enable_startend_2k":9,"genvideo_1_sec_vidu_custom_q4_enable_startend_4k":19,"genvideo_1_sec_vidu_custom_q4_enable_startend_540p":2,"genvideo_1_sec_vidu_custom_q4_enable_startend_720p":5,"genvideo_1_sec_vidu_custom_q4_none_single_1080p":6,"genvideo_1_sec_vidu_custom_q4_none_single_2k":9,"genvideo_1_sec_vidu_custom_q4_none_single_4k":19,"genvideo_1_sec_vidu_custom_q4_none_single_540p":2,"genvideo_1_sec_vidu_custom_q4_none_single_720p":5,"genvideo_1_sec_vidu_custom_q4_none_startend_1080p":6,"genvideo_1_sec_vidu_custom_q4_none_startend_2k":9,"genvideo_1_sec_vidu_custom_q4_none_startend_4k":19,"genvideo_1_sec_vidu_custom_q4_none_startend_540p":2,"genvideo_1_sec_vidu_custom_q4_none_startend_720p":5,"genimage_1_img_google_gemini3.1flash":5,"genvideo_1_sec_alibaba_happyhorse1.0_enable_720p":5,"genvideo_1_sec_alibaba_happyhorse1.0_none_720p":5,"genvideo_1_sec_alibaba_happyhorse1.1_enable_1080p":8,"genvideo_1_sec_alibaba_happyhorse1.1_enable_720p":5,"genvideo_1_sec_alibaba_happyhorse1.1_none_1080p":8,"genvideo_1_sec_alibaba_happyhorse1.1_none_720p":5,"genvideo_1_sec_alibaba_wan2.7_enable_1080p":8,"genvideo_1_sec_alibaba_wan2.7_enable_720p":5,"genvideo_1_sec_alibaba_wan2.7_none_1080p":8,"genvideo_1_sec_alibaba_wan2.7_none_720p":5,"genvideo_1_sec_alibaba_wan3.0_enable_1080p":8,"genvideo_1_sec_alibaba_wan3.0_enable_480p":2,"genvideo_1_sec_alibaba_wan3.0_enable_720p":4,"genvideo_1_sec_alibaba_wan3.0_none_1080p":8,"genvideo_1_sec_alibaba_wan3.0_none_480p":2,"genvideo_1_sec_alibaba_wan3.0_none_720p":4,"genvideo_1_sec_blackforest_flux3_enable_1080p":15,"genvideo_1_sec_blackforest_flux3_enable_2k":20,"genvideo_1_sec_blackforest_flux3_enable_4k":35,"genvideo_1_sec_blackforest_flux3_enable_720p":9,"genvideo_1_sec_blackforest_flux3_none_1080p":15,"genvideo_1_sec_blackforest_flux3_none_2k":20,"genvideo_1_sec_blackforest_flux3_none_4k":35,"genvideo_1_sec_blackforest_flux3_none_720p":9,"genvideo_1_sec_bytedance_seedance2.0fast_enable_480p":4,"genvideo_1_sec_bytedance_seedance2.0fast_enable_480p_motionbrush":4,"genvideo_1_sec_bytedance_seedance2.0fast_enable_720p":8,"genvideo_1_sec_bytedance_seedance2.0fast_enable_720p_motionbrush":8,"genvideo_1_sec_bytedance_seedance2.0fast_none_480p":4,"genvideo_1_sec_bytedance_seedance2.0fast_none_480p_motionbrush":4,"genvideo_1_sec_bytedance_seedance2.0fast_none_720p":8,"genvideo_1_sec_bytedance_seedance2.0fast_none_720p_motionbrush":8,"genvideo_1_sec_bytedance_seedance2.0mini_enable_480p":3,"genvideo_1_sec_bytedance_seedance2.0mini_enable_480p_motionbrush":3,"genvideo_1_sec_bytedance_seedance2.0mini_enable_720p":5,"genvideo_1_sec_bytedance_seedance2.0mini_enable_720p_motionbrush":5,"genvideo_1_sec_bytedance_seedance2.0mini_none_480p":3,"genvideo_1_sec_bytedance_seedance2.0mini_none_480p_motionbrush":3,"genvideo_1_sec_bytedance_seedance2.0mini_none_720p":5,"genvideo_1_sec_bytedance_seedance2.0mini_none_720p_motionbrush":5,"genvideo_1_sec_bytedance_seedance2.0std_enable_1080p":20,"genvideo_1_sec_bytedance_seedance2.0std_enable_1080p_motionbrush":20,"genvideo_1_sec_bytedance_seedance2.0std_enable_480p":5,"genvideo_1_sec_bytedance_seedance2.0std_enable_480p_motionbrush":5,"genvideo_1_sec_bytedance_seedance2.0std_enable_4K":34,"genvideo_1_sec_bytedance_seedance2.0std_enable_4k_motionbrush":34,"genvideo_1_sec_bytedance_seedance2.0std_enable_720p_motionbrush":10,"genvideo_1_sec_bytedance_seedance2.0std_none_1080p":20,"genvideo_1_sec_bytedance_seedance2.0std_none_1080p_motionbrush":20,"genvideo_1_sec_bytedance_seedance2.0std_none_480p":5,"genvideo_1_sec_bytedance_seedance2.0std_none_480p_motionbrush":5,"genvideo_1_sec_bytedance_seedance2.0std_none_4K":34,"genvideo_1_sec_bytedance_seedance2.0std_none_4k_motionbrush":34,"genvideo_1_sec_bytedance_seedance2.0std_none_720p_motionbrush":10,"genvideo_1_sec_bytedance_seedance2.5std_enable_1080p":28,"genvideo_1_sec_bytedance_seedance2.5std_enable_480p":6,"genvideo_1_sec_bytedance_seedance2.5std_enable_720p":14,"genvideo_1_sec_bytedance_seedance2.5std_none_1080p":28,"genvideo_1_sec_bytedance_seedance2.5std_none_480p":6,"genvideo_1_sec_bytedance_seedance2.5std_none_720p":14,"genvideo_1_sec_google_geminiomni1.1flash_enable_1080p":8,"genvideo_1_sec_google_geminiomni1.1flash_enable_360p":2,"genvideo_1_sec_google_geminiomni1.1flash_enable_4k":15,"genvideo_1_sec_google_geminiomni1.1flash_enable_720p":5,"genvideo_1_sec_google_geminiomni1.1flash_none_1080p":8,"genvideo_1_sec_google_geminiomni1.1flash_none_360p":2,"genvideo_1_sec_google_geminiomni1.1flash_none_4k":15,"genvideo_1_sec_google_geminiomni1.1flash_none_720p":5,"genvideo_1_sec_google_geminiomniflash_enable_720p":5,"genvideo_1_sec_google_geminiomniflash_none_720p":5,"genvideo_1_sec_kling_4.0flash_enable_720p":6,"genvideo_1_sec_kling_4.0std_enable_1080p":14,"genvideo_1_sec_kling_4.0std_enable_720p":9,"genvideo_1_sec_kling_o34k_enable_4k":14,"genvideo_1_sec_kling_o34k_none_4k":14,"genvideo_1_sec_kling_o3std_enable_720p":5,"genvideo_1_sec_kling_o3std_none_720p":4,"genvideo_1_sec_minimax_minimaxh3_enable_2k":8,"genvideo_1_sec_minimax_minimaxh3_enable_768p":5,"genvideo_1_sec_minimax_minimaxh3max_enable_480p":3,"genvideo_1_sec_minimax_minimaxh3max_enable_768p":5,"genvideo_1_sec_minimax_minimaxh3max_none_480p":3,"genvideo_1_sec_minimax_minimaxh3max_none_768p":5,"genvideo_1_sec_minimax_minimaxh3_none_2k":8,"genvideo_1_sec_minimax_minimaxh3_none_768p":5,"genvideo_1_sec_motivai_pixverse6_enable_1080p":6,"genvideo_1_sec_motivai_pixverse6_enable_540p":2,"genvideo_1_sec_motivai_pixverse6_enable_720p":3,"genvideo_1_sec_motivai_pixverse6_none_1080p":4,"genvideo_1_sec_motivai_pixverse6_none_540p":1,"genvideo_1_sec_motivai_pixverse6_none_720p":2,"genvideo_1_sec_vidu_q3_enable_1080p":5,"genvideo_1_sec_vidu_q3_enable_540p":3,"genvideo_1_sec_vidu_q3_enable_720p":4,"genvideo_1_sec_vidu_q3mix_enable_1080p":9,"genvideo_1_sec_vidu_q3mix_enable_720p":7,"genvideo_1_sec_vidu_q3mix_none_1080p":9,"genvideo_1_sec_vidu_q3mix_none_720p":7,"genvideo_1_sec_vidu_q3_none_1080p":5,"genvideo_1_sec_vidu_q3_none_540p":3,"genvideo_1_sec_vidu_q3_none_720p":4,"genvideo_1_sec_vidu_q3turbo_enable_1080p":4,"genvideo_1_sec_vidu_q3turbo_enable_540p":2,"genvideo_1_sec_vidu_q3turbo_enable_720p":3,"genvideo_1_sec_vidu_q3turbo_none_1080p":4,"genvideo_1_sec_vidu_q3turbo_none_540p":2,"genvideo_1_sec_vidu_q3turbo_none_720p":3,"genimage_1_img_alibaba_qwenimage3.0_enable_1k":2,"genimage_1_img_alibaba_qwenimage3.0_enable_2k":3,"genimage_1_img_alibaba_qwenimage3.0_none_1k":2,"genimage_1_img_alibaba_qwenimage3.0_none_2k":3,"genimage_1_img_alibaba_qwenimage3.0pro_enable_1k":3,"genimage_1_img_alibaba_qwenimage3.0pro_enable_2k":5,"genimage_1_img_alibaba_qwenimage3.0pro_none_1k":3,"genimage_1_img_alibaba_qwenimage3.0pro_none_2k":5,"genimage_1_img_blackforest_flux2pro_enable_1k":3,"genimage_1_img_blackforest_flux2pro_enable_1K":3,"genimage_1_img_blackforest_flux2pro_enable_2k":6,"genimage_1_img_blackforest_flux2pro_enable_2K":6,"genimage_1_img_blackforest_flux2pro_none_1k":2,"genimage_1_img_blackforest_flux2pro_none_1K":2,"genimage_1_img_blackforest_flux2pro_none_2k":5,"genimage_1_img_blackforest_flux2pro_none_2K":5,"genimage_1_img_bytedance_seedream5.0lite_enable_2k":3,"genimage_1_img_bytedance_seedream5.0lite_enable_2K":3,"genimage_1_img_bytedance_seedream5.0lite_enable_3k":3,"genimage_1_img_bytedance_seedream5.0lite_enable_3K":3,"genimage_1_img_bytedance_seedream5.0lite_none_2k":3,"genimage_1_img_bytedance_seedream5.0lite_none_2K":3,"genimage_1_img_bytedance_seedream5.0lite_none_3k":3,"genimage_1_img_bytedance_seedream5.0lite_none_3K":3,"genimage_1_img_bytedance_seedream5.0pro_enable_1k":3,"genimage_1_img_bytedance_seedream5.0pro_enable_1K":3,"genimage_1_img_bytedance_seedream5.0pro_enable_2k":5,"genimage_1_img_bytedance_seedream5.0pro_enable_2K":5,"genimage_1_img_bytedance_seedream5.0pro_none_1k":3,"genimage_1_img_bytedance_seedream5.0pro_none_1K":3,"genimage_1_img_bytedance_seedream5.0pro_none_2k":5,"genimage_1_img_bytedance_seedream5.0pro_none_2K":5,"genimage_1_img_cyberlink_fluxdev1_none_1k":1,"genimage_1_img_cyberlink_fluxdev1_none_1K":1,"genimage_1_img_cyberlink_stablediffusion_enable":1,"genimage_1_img_cyberlink_stablediffusion_enable_1k":1,"genimage_1_img_cyberlink_stablediffusion_enable_1K":1,"genimage_1_img_cyberlink_stablediffusion_none":1,"genimage_1_img_cyberlink_stablediffusion_none_1k":1,"genimage_1_img_cyberlink_stablediffusion_none_1K":1,"genimage_1_img_cyberlink_zimageturbo_none":2,"genimage_1_img_cyberlink_zimageturbo_none_1k":1,"genimage_1_img_cyberlink_zimageturbo_none_1K":1,"genimage_1_img_cyberlink_zimageturbo_none_2k":2,"genimage_1_img_cyberlink_zimageturbo_none_2K":2,"genimage_1_img_google_gemini2.5flash_enable_1k":2,"genimage_1_img_google_gemini2.5flash_enable_1K":2,"genimage_1_img_google_gemini2.5flash_none_1k":2,"genimage_1_img_google_gemini2.5flash_none_1K":2,"genimage_1_img_google_gemini3.1flash_enable_1k":3,"genimage_1_img_google_gemini3.1flash_enable_1K":3,"genimage_1_img_google_gemini3.1flash_enable_2k":5,"genimage_1_img_google_gemini3.1flash_enable_2K":5,"genimage_1_img_google_gemini3.1flash_enable_4k":7,"genimage_1_img_google_gemini3.1flash_enable_4K":7,"genimage_1_img_google_gemini3.1flashlite_enable_1k":2,"genimage_1_img_google_gemini3.1flashlite_enable_1K":2,"genimage_1_img_google_gemini3.1flashlite_none_1k":2,"genimage_1_img_google_gemini3.1flashlite_none_1K":2,"genimage_1_img_google_gemini3.1flash_none_1k":3,"genimage_1_img_google_gemini3.1flash_none_1K":3,"genimage_1_img_google_gemini3.1flash_none_2k":5,"genimage_1_img_google_gemini3.1flash_none_2K":5,"genimage_1_img_google_gemini3.1flash_none_4k":7,"genimage_1_img_google_gemini3.1flash_none_4K":7,"genimage_1_img_google_gemini3pro_enable_1k":6,"genimage_1_img_google_gemini3pro_enable_1K":6,"genimage_1_img_google_gemini3pro_enable_2k":6,"genimage_1_img_google_gemini3pro_enable_2K":6,"genimage_1_img_google_gemini3pro_enable_4k":12,"genimage_1_img_google_gemini3pro_enable_4K":12,"genimage_1_img_google_gemini3pro_none_1k":6,"genimage_1_img_google_gemini3pro_none_1K":6,"genimage_1_img_google_gemini3pro_none_2k":6,"genimage_1_img_google_gemini3pro_none_2K":6,"genimage_1_img_google_gemini3pro_none_4k":12,"genimage_1_img_google_gemini3pro_none_4K":12,"genimage_1_img_google_gemininanobanana2.1_enable_1k":3,"genimage_1_img_google_gemininanobanana2.1_enable_2k":4,"genimage_1_img_google_gemininanobanana2.1_enable_4k":8,"genimage_1_img_google_gemininanobanana2.1_none_1k":3,"genimage_1_img_google_gemininanobanana2.1_none_2k":4,"genimage_1_img_google_gemininanobanana2.1_none_4k":8,"genimage_1_img_kling_o1_enable":3,"genimage_1_img_kling_o1_enable_1k":3,"genimage_1_img_kling_o1_enable_1K":3,"genimage_1_img_kling_o1_enable_2k":3,"genimage_1_img_kling_o1_enable_2K":3,"genimage_1_img_kling_o1_enable_4k":5,"genimage_1_img_kling_o1_enable_4K":5,"genimage_1_img_kling_o1_none":3,"genimage_1_img_kling_o1_none_1k":3,"genimage_1_img_kling_o1_none_1K":3,"genimage_1_img_kling_o1_none_2k":3,"genimage_1_img_kling_o1_none_2K":3,"genimage_1_img_kling_o1_none_4k":5,"genimage_1_img_kling_o3_enable_1k":3,"genimage_1_img_kling_o3_enable_1K":3,"genimage_1_img_kling_o3_enable_2k":3,"genimage_1_img_kling_o3_enable_2K":3,"genimage_1_img_kling_o3_enable_4k":5,"genimage_1_img_kling_o3_enable_4K":5,"genimage_1_img_kling_o3_none_1k":3,"genimage_1_img_kling_o3_none_1K":3,"genimage_1_img_kling_o3_none_2k":3,"genimage_1_img_kling_o3_none_2K":3,"genimage_1_img_kling_o3_none_4k":5,"genimage_1_img_kling_o3_none_4K":5,"genimage_1_img_openai_gptimage1.5_enable":3,"genimage_1_img_openai_gptimage1.5_enable_1k":3,"genimage_1_img_openai_gptimage1.5_enable_1K":3,"genimage_1_img_openai_gptimage1.5_none":3,"genimage_1_img_openai_gptimage1.5_none_1k":3,"genimage_1_img_openai_gptimage1.5_none_1K":3,"genimage_1_img_openai_gptimage1_enable":2,"genimage_1_img_openai_gptimage1_enable_1k":2,"genimage_1_img_openai_gptimage1_enable_1K":2,"genimage_1_img_openai_gptimage1_none":2,"genimage_1_img_openai_gptimage1_none_1k":2,"genimage_1_img_openai_gptimage1_none_1K":2,"genimage_1_img_openai_gptimage2.5flare_enable_1k":3,"genimage_1_img_openai_gptimage2.5flare_enable_1K":3,"genimage_1_img_openai_gptimage2.5flare_enable_2k":6,"genimage_1_img_openai_gptimage2.5flare_enable_2K":6,"genimage_1_img_openai_gptimage2.5flare_none_1k":3,"genimage_1_img_openai_gptimage2.5flare_none_1K":3,"genimage_1_img_openai_gptimage2.5flare_none_2k":6,"genimage_1_img_openai_gptimage2.5flare_none_2K":6,"genimage_1_img_openai_gptimage2.5sunburst_enable_1k":3,"genimage_1_img_openai_gptimage2.5sunburst_enable_1K":3,"genimage_1_img_openai_gptimage2.5sunburst_enable_2k":6,"genimage_1_img_openai_gptimage2.5sunburst_enable_2K":6,"genimage_1_img_openai_gptimage2.5sunburst_none_1k":3,"genimage_1_img_openai_gptimage2.5sunburst_none_1K":3,"genimage_1_img_openai_gptimage2.5sunburst_none_2k":6,"genimage_1_img_openai_gptimage2.5sunburst_none_2K":6,"genimage_1_img_openai_gptimage2_enable_1k":3,"genimage_1_img_openai_gptimage2_enable_1K":3,"genimage_1_img_openai_gptimage2_enable_2k":6,"genimage_1_img_openai_gptimage2_enable_2K":6,"genimage_1_img_openai_gptimage2_none_1k":3,"genimage_1_img_openai_gptimage2_none_1K":3,"genimage_1_img_openai_gptimage2_none_2k":6,"genimage_1_img_openai_gptimage2_none_2K":6,"genvideo_1_sec_bytedance_seedance2.0fast_enable_none_1080p":18,"genvideo_1_sec_bytedance_seedance2.0fast_none_none_1080p":18,"genvideo_1_sec_google_veo3.1fast_enable_1080p":9,"genvideo_1_sec_google_veo3.1fast_enable_4k":16,"genvideo_1_sec_google_veo3.1fast_enable_720p":7,"genvideo_1_sec_google_veo3.1fast_none_1080p":7,"genvideo_1_sec_google_veo3.1fast_none_4k":14,"genvideo_1_sec_google_veo3.1fast_none_720p":5,"genvideo_1_sec_google_veo3.1lite_enable_1080p":5,"genvideo_1_sec_google_veo3.1lite_enable_720p":3,"genvideo_1_sec_google_veo3.1lite_none_1080p":3,"genvideo_1_sec_google_veo3.1lite_none_720p":2,"genvideo_1_sec_google_veo3.1std_enable_1080p":18,"genvideo_1_sec_google_veo3.1std_enable_4k":30,"genvideo_1_sec_google_veo3.1std_enable_720p":18,"genvideo_1_sec_google_veo3.1std_none_1080p":10,"genvideo_1_sec_google_veo3.1std_none_4k":20,"genvideo_1_sec_google_veo3.1std_none_720p":10,"genvideo_1_sec_kling_2.5pro_enable_1080p":4,"genvideo_1_sec_kling_2.5pro_none_1080p":4,"genvideo_1_sec_kling_2.5std_enable_720p":2,"genvideo_1_sec_kling_2.5std_none_720p":2,"genvideo_1_sec_kling_2.6pro_enable_1080p":8,"genvideo_1_sec_kling_2.6pro_none_1080p":4,"genvideo_1_sec_kling_3.04k_enable_4k":14,"genvideo_1_sec_kling_3.04k_none_4k":14,"genvideo_1_sec_kling_3.0pro_enable_1080p":8,"genvideo_1_sec_kling_3.0pro_none_1080p":5,"genvideo_1_sec_kling_3.0std_enable_720p":6,"genvideo_1_sec_kling_3.0std_none_720p":4,"genvideo_1_sec_kling_o3pro_enable_enable_720p":6,"genvideo_1_sec_kling_o3pro_none_enable_720p":4,"genvideo_1_sec_kling_o3std_enable_none_1080p":8,"genvideo_1_sec_kling_o3std_none_none_1080p":5,"genvideo_1_sec_openai_sora2_enable_720p":6,"genvideo_1_sec_openai_sora2_none_720p":6,"genvideo_1_sec_openai_sora2pro_enable_1024p":22,"genvideo_1_sec_openai_sora2pro_enable_1080p":28,"genvideo_1_sec_openai_sora2pro_enable_720p":16,"genvideo_1_sec_openai_sora2pro_none_1024p":22,"genvideo_1_sec_openai_sora2pro_none_1080p":28,"genvideo_1_sec_openai_sora2pro_none_720p":16,"genvideo_1_sec_vidu_q2_enable_1080p":3,"genvideo_1_sec_vidu_q2_enable_540p":1,"genvideo_1_sec_vidu_q2_enable_720p":2,"genvideo_1_sec_vidu_q2_none_1080p":3,"genvideo_1_sec_vidu_q2_none_540p":1,"genvideo_1_sec_vidu_q2_none_720p":2,"genvideo_1_sec_vidu_q3pro_enable_1080p":6,"genvideo_1_sec_vidu_q3pro_enable_540p":3,"genvideo_1_sec_vidu_q3pro_enable_720p":5,"genvideo_1_sec_vidu_q3pro_none_1080p":6,"genvideo_1_sec_vidu_q3pro_none_540p":3,"genvideo_1_sec_vidu_q3pro_none_720p":5,"genimage_1_img_google_gemini2.5flash_template":3,"genimage_1_img_openai_gptimage2.5sunburst_template":6,"genvideo_60_sec":2,"genvideo_1_sec_byteplus_pro_hd_1080p_120fps":16,"genvideo_1_sec_byteplus_pro_hd_1080p_30fps":4,"genvideo_1_sec_byteplus_pro_hd_1080p_60fps":8,"genvideo_1_sec_byteplus_pro_hd_4k_120fps":48,"genvideo_1_sec_byteplus_pro_hd_4k_30fps":12,"genvideo_1_sec_byteplus_pro_hd_4k_60fps":24,"genvideo_1_sec_byteplus_pro_hd_720p_120fps":8,"genvideo_1_sec_byteplus_pro_hd_720p_30fps":2,"genvideo_1_sec_byteplus_pro_hd_720p_60fps":4,"genvideo_1_sec_byteplus_pro_natural_1080p_120fps":16,"genvideo_1_sec_byteplus_pro_natural_1080p_30fps":4,"genvideo_1_sec_byteplus_pro_natural_1080p_60fps":8,"genvideo_1_sec_byteplus_pro_natural_4k_120fps":48,"genvideo_1_sec_byteplus_pro_natural_4k_30fps":12,"genvideo_1_sec_byteplus_pro_natural_4k_60fps":24,"genvideo_1_sec_byteplus_pro_natural_720p_120fps":8,"genvideo_1_sec_byteplus_pro_natural_720p_30fps":2,"genvideo_1_sec_byteplus_pro_natural_720p_60fps":4,"genvideo_1_sec_byteplus_std_hd_1080p_120fps":2,"genvideo_1_sec_byteplus_std_hd_1080p_30fps":2,"genvideo_1_sec_byteplus_std_hd_1080p_60fps":2,"genvideo_1_sec_byteplus_std_hd_4k_120fps":8,"genvideo_1_sec_byteplus_std_hd_4k_30fps":3,"genvideo_1_sec_byteplus_std_hd_4k_60fps":6,"genvideo_1_sec_byteplus_std_hd_720p_120fps":1,"genvideo_1_sec_byteplus_std_hd_720p_30fps":1,"genvideo_1_sec_byteplus_std_hd_720p_60fps":1,"genvideo_1_sec_byteplus_std_natural_1080p_120fps":2,"genvideo_1_sec_byteplus_std_natural_1080p_30fps":2,"genvideo_1_sec_byteplus_std_natural_1080p_60fps":2,"genvideo_1_sec_byteplus_std_natural_4k_120fps":8,"genvideo_1_sec_byteplus_std_natural_4k_30fps":3,"genvideo_1_sec_byteplus_std_natural_4k_60fps":6,"genvideo_1_sec_byteplus_std_natural_720p_120fps":1,"genvideo_1_sec_byteplus_std_natural_720p_30fps":1,"genvideo_1_sec_byteplus_std_natural_720p_60fps":1,"genvideo_1_sec_alibaba_happyhorse1.0_enable_enable_1080p":7,"genvideo_1_sec_alibaba_happyhorse1.0_enable_enable_720p":4,"genvideo_1_sec_alibaba_happyhorse1.0_enable_none_1080p":7,"genvideo_1_sec_alibaba_happyhorse1.0_enable_none_720p":4,"genvideo_1_sec_alibaba_happyhorse1.0_none_enable_1080p":7,"genvideo_1_sec_alibaba_happyhorse1.0_none_enable_720p":4,"genvideo_1_sec_alibaba_happyhorse1.0_none_none_1080p":7,"genvideo_1_sec_alibaba_happyhorse1.0_none_none_720p":4,"genvideo_1_sec_alibaba_wan2.7_enable_enable_1080p":5,"genvideo_1_sec_alibaba_wan2.7_enable_enable_720p":3,"genvideo_1_sec_alibaba_wan2.7_enable_none_1080p":5,"genvideo_1_sec_alibaba_wan2.7_enable_none_720p":3,"genvideo_1_sec_alibaba_wan2.7_none_enable_1080p":5,"genvideo_1_sec_alibaba_wan2.7_none_enable_720p":3,"genvideo_1_sec_alibaba_wan2.7_none_none_1080p":5,"genvideo_1_sec_alibaba_wan2.7_none_none_720p":3,"genvideo_1_sec_alibaba_wan3.0_enable_enable_1080p":8,"genvideo_1_sec_alibaba_wan3.0_enable_enable_480p":2,"genvideo_1_sec_alibaba_wan3.0_enable_enable_720p":4,"genvideo_1_sec_alibaba_wan3.0_enable_none_1080p":8,"genvideo_1_sec_alibaba_wan3.0_enable_none_480p":2,"genvideo_1_sec_alibaba_wan3.0_enable_none_720p":4,"genvideo_1_sec_alibaba_wan3.0_none_enable_1080p":8,"genvideo_1_sec_alibaba_wan3.0_none_enable_480p":2,"genvideo_1_sec_alibaba_wan3.0_none_enable_720p":4,"genvideo_1_sec_alibaba_wan3.0_none_none_1080p":8,"genvideo_1_sec_alibaba_wan3.0_none_none_480p":2,"genvideo_1_sec_alibaba_wan3.0_none_none_720p":4,"genvideo_1_sec_blackforest_flux3_enable_enable_1080p":25,"genvideo_1_sec_blackforest_flux3_enable_enable_2k":30,"genvideo_1_sec_blackforest_flux3_enable_enable_4k":40,"genvideo_1_sec_blackforest_flux3_enable_enable_720p":20,"genvideo_1_sec_blackforest_flux3_enable_none_1080p":25,"genvideo_1_sec_blackforest_flux3_enable_none_2k":30,"genvideo_1_sec_blackforest_flux3_enable_none_4k":40,"genvideo_1_sec_blackforest_flux3_enable_none_720p":20,"genvideo_1_sec_blackforest_flux3_none_enable_1080p":25,"genvideo_1_sec_blackforest_flux3_none_enable_2k":30,"genvideo_1_sec_blackforest_flux3_none_enable_4k":40,"genvideo_1_sec_blackforest_flux3_none_enable_720p":20,"genvideo_1_sec_blackforest_flux3_none_none_1080p":25,"genvideo_1_sec_blackforest_flux3_none_none_2k":30,"genvideo_1_sec_blackforest_flux3_none_none_4k":40,"genvideo_1_sec_blackforest_flux3_none_none_720p":20,"genvideo_1_sec_bytedance_seedance2.0fast_enable_enable_1080p":18,"genvideo_1_sec_bytedance_seedance2.0fast_enable_enable_480p":4,"genvideo_1_sec_bytedance_seedance2.0fast_enable_enable_4k":32,"genvideo_1_sec_bytedance_seedance2.0fast_enable_enable_720p":8,"genvideo_1_sec_bytedance_seedance2.0fast_enable_none_480p":4,"genvideo_1_sec_bytedance_seedance2.0fast_enable_none_4k":32,"genvideo_1_sec_bytedance_seedance2.0fast_enable_none_720p":8,"genvideo_1_sec_bytedance_seedance2.0fast_none_enable_1080p":18,"genvideo_1_sec_bytedance_seedance2.0fast_none_enable_480p":4,"genvideo_1_sec_bytedance_seedance2.0fast_none_enable_4k":32,"genvideo_1_sec_bytedance_seedance2.0fast_none_enable_720p":8,"genvideo_1_sec_bytedance_seedance2.0fast_none_none_480p":4,"genvideo_1_sec_bytedance_seedance2.0fast_none_none_4k":32,"genvideo_1_sec_bytedance_seedance2.0fast_none_none_720p":8,"genvideo_1_sec_bytedance_seedance2.0mini_enable_enable_1080p":18,"genvideo_1_sec_bytedance_seedance2.0mini_enable_enable_480p":3,"genvideo_1_sec_bytedance_seedance2.0mini_enable_enable_4k":32,"genvideo_1_sec_bytedance_seedance2.0mini_enable_enable_720p":5,"genvideo_1_sec_bytedance_seedance2.0mini_enable_none_1080p":18,"genvideo_1_sec_bytedance_seedance2.0mini_enable_none_480p":3,"genvideo_1_sec_bytedance_seedance2.0mini_enable_none_4k":32,"genvideo_1_sec_bytedance_seedance2.0mini_enable_none_720p":5,"genvideo_1_sec_bytedance_seedance2.0mini_none_enable_1080p":18,"genvideo_1_sec_bytedance_seedance2.0mini_none_enable_480p":3,"genvideo_1_sec_bytedance_seedance2.0mini_none_enable_4k":32,"genvideo_1_sec_bytedance_seedance2.0mini_none_enable_720p":5,"genvideo_1_sec_bytedance_seedance2.0mini_none_none_1080p":18,"genvideo_1_sec_bytedance_seedance2.0mini_none_none_480p":3,"genvideo_1_sec_bytedance_seedance2.0mini_none_none_4k":32,"genvideo_1_sec_bytedance_seedance2.0mini_none_none_720p":5,"genvideo_1_sec_bytedance_seedance2.0std_enable_enable_1080p":20,"genvideo_1_sec_bytedance_seedance2.0std_enable_enable_480p":5,"genvideo_1_sec_bytedance_seedance2.0std_enable_enable_4k":34,"genvideo_1_sec_bytedance_seedance2.0std_enable_enable_720p":10,"genvideo_1_sec_bytedance_seedance2.0std_enable_none_1080p":20,"genvideo_1_sec_bytedance_seedance2.0std_enable_none_480p":5,"genvideo_1_sec_bytedance_seedance2.0std_enable_none_4k":34,"genvideo_1_sec_bytedance_seedance2.0std_enable_none_720p":10,"genvideo_1_sec_bytedance_seedance2.0std_none_enable_1080p":20,"genvideo_1_sec_bytedance_seedance2.0std_none_enable_480p":5,"genvideo_1_sec_bytedance_seedance2.0std_none_enable_4k":34,"genvideo_1_sec_bytedance_seedance2.0std_none_enable_720p":10,"genvideo_1_sec_bytedance_seedance2.0std_none_none_1080p":20,"genvideo_1_sec_bytedance_seedance2.0std_none_none_480p":5,"genvideo_1_sec_bytedance_seedance2.0std_none_none_4k":34,"genvideo_1_sec_bytedance_seedance2.0std_none_none_720p":10,"genvideo_1_sec_bytedance_seedance2.5std_enable_enable_1080p":28,"genvideo_1_sec_bytedance_seedance2.5std_enable_enable_480p":6,"genvideo_1_sec_bytedance_seedance2.5std_enable_none_1080p":28,"genvideo_1_sec_bytedance_seedance2.5std_enable_none_480p":6,"genvideo_1_sec_bytedance_seedance2.5std_none_enable_1080p":28,"genvideo_1_sec_bytedance_seedance2.5std_none_enable_480p":6,"genvideo_1_sec_bytedance_seedance2.5std_none_none_1080p":28,"genvideo_1_sec_bytedance_seedance2.5std_none_none_480p":6,"genvideo_1_sec_google_geminiomni1.1flash_enable_enable_1080p":8,"genvideo_1_sec_google_geminiomni1.1flash_enable_enable_360p":2,"genvideo_1_sec_google_geminiomni1.1flash_enable_enable_4k":15,"genvideo_1_sec_google_geminiomni1.1flash_enable_enable_720p":5,"genvideo_1_sec_google_geminiomni1.1flash_enable_none_1080p":8,"genvideo_1_sec_google_geminiomni1.1flash_enable_none_360p":2,"genvideo_1_sec_google_geminiomni1.1flash_enable_none_4k":15,"genvideo_1_sec_google_geminiomni1.1flash_enable_none_720p":5,"genvideo_1_sec_kling_4.0flash_enable_enable_720p":8,"genvideo_1_sec_kling_4.0flash_enable_none_720p":8,"genvideo_1_sec_kling_4.0std_enable_enable_1080p":16,"genvideo_1_sec_kling_4.0std_enable_enable_720p":11,"genvideo_1_sec_kling_4.0std_enable_none_1080p":16,"genvideo_1_sec_kling_4.0std_enable_none_720p":11,"genvideo_1_sec_kling_o3pro_enable_enable_1080p":5,"genvideo_1_sec_kling_o3pro_enable_enable_4K":12,"genvideo_1_sec_kling_o3pro_enable_none_1080p":5,"genvideo_1_sec_kling_o3pro_enable_none_4K":12,"genvideo_1_sec_kling_o3pro_none_enable_1080p":5,"genvideo_1_sec_kling_o3pro_none_enable_4K":12,"genvideo_1_sec_kling_o3pro_none_none_1080p":5,"genvideo_1_sec_kling_o3pro_none_none_4K":12,"genvideo_1_sec_kling_o3std_enable_enable_720p":4,"genvideo_1_sec_kling_o3std_enable_none_720p":4,"genvideo_1_sec_kling_o3std_none_enable_720p":4,"genvideo_1_sec_kling_o3std_none_none_720p":4,"genvideo_1_sec_minimax_minimaxh3_enable_enable_2k":16,"genvideo_1_sec_minimax_minimaxh3_enable_enable_768p":10,"genvideo_1_sec_minimax_minimaxh3_enable_none_2k":16,"genvideo_1_sec_minimax_minimaxh3_enable_none_768p":10,"genvideo_1_sec_minimax_minimaxh3max_enable_enable_480p":7,"genvideo_1_sec_minimax_minimaxh3max_enable_enable_768p":14,"genvideo_1_sec_minimax_minimaxh3max_enable_none_480p":7,"genvideo_1_sec_minimax_minimaxh3max_enable_none_768p":14,"genvideo_1_sec_minimax_minimaxh3max_none_enable_480p":7,"genvideo_1_sec_minimax_minimaxh3max_none_enable_768p":14,"genvideo_1_sec_minimax_minimaxh3max_none_none_480p":7,"genvideo_1_sec_minimax_minimaxh3max_none_none_768p":14,"genvideo_1_sec_minimax_minimaxh3_none_enable_2k":16,"genvideo_1_sec_minimax_minimaxh3_none_enable_768p":10,"genvideo_1_sec_minimax_minimaxh3_none_none_2k":16,"genvideo_1_sec_minimax_minimaxh3_none_none_768p":10,"genvideo_1_sec_motivai_pixverse6_enable_enable_360p":1,"genvideo_1_sec_motivai_pixverse6_enable_enable_540p":2,"genvideo_1_sec_motivai_pixverse6_enable_enable_720p":3,"genvideo_1_sec_motivai_pixverse6_enable_none_360p":1,"genvideo_1_sec_motivai_pixverse6_enable_none_540p":2,"genvideo_1_sec_motivai_pixverse6_enable_none_720p":3,"genvideo_1_sec_motivai_pixverse6_none_enable_360p":1,"genvideo_1_sec_motivai_pixverse6_none_enable_540p":2,"genvideo_1_sec_motivai_pixverse6_none_enable_720p":3,"genvideo_1_sec_motivai_pixverse6_none_none_360p":1,"genvideo_1_sec_motivai_pixverse6_none_none_540p":2,"genvideo_1_sec_motivai_pixverse6_none_none_720p":3}"""
+)
+
+
 def resolve_video_action_and_credit(
     model_key: str,
     effect_mode: str = "TextToVideo",
@@ -2405,7 +2596,9 @@ def resolve_video_action_and_credit(
     Verilen model, efekt modu, cozunurluk, ses ve frame moduna gore dogru action_id_str ve credit_cost dondurur.
     """
     model_data = VIDEO_MODELS_CONFIG.get(model_key, VIDEO_MODELS_CONFIG["seedance_2_0_fast"])
-    action_id_sound = {"vendor": "enable", "none": "none", "auto": "enable"}.get(sound, sound)
+    action_id_sound = {"vendor": "enable", "none": "none", "auto": "enable", "on": "enable", "off": "none"}.get(str(sound).lower(), sound)
+    if model_key == "kling_4_0" or model_data.get("always_sound_enable"):
+        action_id_sound = "enable"
 
     if effect_mode == "ImageToVideo":
         overrides = model_data.get("action_id_i2v_overrides", {})
@@ -2426,17 +2619,19 @@ def resolve_video_action_and_credit(
         else:
             action_id_str = model_data["action_id"].format(sound=action_id_sound, resolution=resolution)
 
-    credit_map = model_data.get("credit_map")
-    if credit_map:
-        credit_cost = credit_map.get((effect_mode, sound, frame_mode, resolution))
-        if credit_cost is None:
-            credit_cost = credit_map.get((effect_mode, sound, resolution))
-        if credit_cost is None:
-            credit_cost = credit_map.get((sound, resolution))
+    credit_cost = None
+    if action_id_str in CYBERLINK_ACTION_CREDITS:
+        credit_cost = CYBERLINK_ACTION_CREDITS[action_id_str]
+    else:
+        credit_map = model_data.get("credit_map")
+        if credit_map:
+            credit_cost = credit_map.get((effect_mode, sound, frame_mode, resolution))
+            if credit_cost is None:
+                credit_cost = credit_map.get((effect_mode, sound, resolution))
+            if credit_cost is None:
+                credit_cost = credit_map.get((sound, resolution))
         if credit_cost is None:
             credit_cost = model_data.get("credit", 3)
-    else:
-        credit_cost = model_data.get("credit", 3)
 
     return action_id_str, credit_cost
 
@@ -2491,13 +2686,20 @@ def resolve_image_action_and_credit(
         total_credit = 1 * batch_size
     else:
         feature_id = "TextToImage"
-        mode_key = "enable" if has_reference else "none"
-        credits_dict = model_data.get("credits", {}).get(mode_key, {})
-        unit_credit = credits_dict.get(resolution, 2)
+        mode_key = "enable" if (has_reference and model_data.get("ref_img_limit", 0) > 0) else "none"
+        prefix = model_data.get("actionId_prefix", "genimage")
+        res_suffix = resolution.lower() if ("alibaba_qwen" in prefix or "nanobanana2.1" in prefix or "kling_o1" in prefix) else resolution
+        action_id = f"{prefix}_{mode_key}_{res_suffix}"
+
+        if action_id in CYBERLINK_ACTION_CREDITS:
+            unit_credit = CYBERLINK_ACTION_CREDITS[action_id]
+        else:
+            credits_dict = model_data.get("credits", {}).get(mode_key, {})
+            unit_credit = credits_dict.get(resolution, 2)
         total_credit = unit_credit * batch_size
-        action_id = f"{model_data.get('actionId_prefix', 'genimage')}_{mode_key}_{resolution}"
 
     return feature_id, action_id, unit_credit, total_credit
+
 
 
 
@@ -2557,7 +2759,7 @@ def generate_ai_image_service(
                 loaded_images_bytes.append(f.read())
 
     version_val = "4" if ("flux" in model_key or model_key == "z_image") else "5"
-    if (version_val == "5" or is_style_ref) and not loaded_images_bytes:
+    if is_style_ref and not loaded_images_bytes:
         from PIL import Image
         import io
         img = Image.new('RGB', (512, 512), color=(120, 160, 220))
@@ -2713,7 +2915,7 @@ def generate_ai_image_service(
 
         if "flux" not in model_key:
             form_data_apply["resolution"] = resolution
-        if has_reference or "flux" not in model_key:
+        if has_reference:
             form_data_apply["sources"] = sources_str
         if "flux" in model_key:
             form_data_apply["need_translate"] = "true"
@@ -2856,7 +3058,9 @@ def generate_ai_video_service(
             h_val = 720
             if resolution == "480p": h_val = 480
             elif resolution == "540p": h_val = 540
+            elif resolution == "768p": h_val = 768
             elif resolution == "1080p": h_val = 1080
+            elif resolution == "2k": h_val = 1440
             elif resolution == "4k": h_val = 2160
             
             if ar_w == 16 and ar_h == 9:
@@ -3035,12 +3239,17 @@ def generate_ai_video_service(
             img_w, img_h = get_image_dimensions(prepared_media[0]["path"])
             image_file_size = os.path.getsize(prepared_media[0]["path"])
 
-            if vendor_str in ["Alibaba", "Pixverse", "BytePlus"]:
+            if vendor_str in ["Alibaba", "Pixverse", "BytePlus", "Flux", "Hailuo"]:
                 form_data_apply["width"] = str(img_w)
                 form_data_apply["height"] = str(img_h)
-                if vendor_str == "Alibaba":
+                if vendor_str in ["Alibaba", "Hailuo"]:
                     form_data_apply["aspect_ratio"] = aspect_ratio
                     form_data_apply["resolution"] = resolution.upper()
+                    if model_mode:
+                        form_data_apply["mode"] = model_mode
+                elif vendor_str == "BytePlus" and "2.5" in str(model_name_str):
+                    form_data_apply["aspect_ratio"] = "adaptive"
+                    form_data_apply["resolution"] = resolution
                     if model_mode:
                         form_data_apply["mode"] = model_mode
                 else:
@@ -3220,6 +3429,17 @@ def generate_ai_video_service(
 ACTIVE_ACCOUNTS = {} # {api_key_id: {"email": email, "password": password, "member_token": token, "timestamp": time.time()}}
 ACCOUNT_LOCK = threading.Lock()
 
+# Her API anahtari icin hesap acma surecini kilitleyen mekanizma
+ACCOUNT_CREATION_LOCKS = {}
+CREATION_LOCK_MUTEX = threading.Lock()
+
+def get_creation_lock(api_key_id):
+    """Her api_key_id icin ozel bir hesap acma kilidi doner."""
+    with CREATION_LOCK_MUTEX:
+        if api_key_id not in ACCOUNT_CREATION_LOCKS:
+            ACCOUNT_CREATION_LOCKS[api_key_id] = threading.Lock()
+        return ACCOUNT_CREATION_LOCKS[api_key_id]
+
 def mark_account_exhausted(api_key_id, email):
     """Marks an account as used=1 (credits exhausted) in the database and removes it from active cache."""
     with ACCOUNT_LOCK:
@@ -3287,7 +3507,9 @@ def create_myedit_account(api_key_id):
 
         return member_token, email
     except Exception as e:
+        import traceback
         print(f"[-] Account creation exception: {e}")
+        traceback.print_exc()
         return None, None
 
 def create_myedit_account_wrapper(api_key_id):
@@ -3319,12 +3541,12 @@ def get_or_create_active_account(api_key_id, task_id=None, force_new=False):
     # 2. Check if DB has the most recently created valid account (ORDER BY id DESC)
     if not force_new:
         try:
-            query = 'SELECT email, password FROM accounts WHERE api_key_id = %s ORDER BY id DESC LIMIT 1' if db.DB_TYPE == 'postgresql' else 'SELECT email, password FROM accounts WHERE api_key_id = ? ORDER BY id DESC LIMIT 1'
+            query = 'SELECT email, password FROM accounts WHERE api_key_id = %s AND used = 0 ORDER BY id DESC LIMIT 1' if db.DB_TYPE == 'postgresql' else 'SELECT email, password FROM accounts WHERE api_key_id = ? AND used = 0 ORDER BY id DESC LIMIT 1'
             db_acc = db._execute_query(query, (api_key_id,), fetch_one=True)
             if db_acc and db_acc.get("email") and db_acc.get("password"):
                 email = db_acc["email"]
                 password = db_acc["password"]
-                print(f"[ACCOUNT] Found latest account in DB: {email}. Attempting login...")
+                print(f"[ACCOUNT] Found valid account in DB: {email}. Attempting login...")
                 login_res = login(email, password)
                 if login_res.get("status") == "SUCCESS" and "info" in login_res:
                     member_token = login_res["info"].get("memberToken")
@@ -3351,30 +3573,57 @@ def get_or_create_active_account(api_key_id, task_id=None, force_new=False):
         except Exception as e:
             print(f"[ACCOUNT] Error retrieving DB account: {e}")
 
-    # 3. Create a fresh account via temp-mail
-    for attempt in range(5):
-        print(f"[ACCOUNT] Registering new account for api_key_id={api_key_id} (attempt {attempt+1}/5)...")
-        member_token, email = create_myedit_account_wrapper(api_key_id)
-        if member_token and email:
-            password = "CyberLink123!"
-            acc_data = {
-                "email": email,
-                "password": password,
-                "member_token": member_token,
-                "timestamp": time.time()
-            }
-            with ACCOUNT_LOCK:
-                ACTIVE_ACCOUNTS[api_key_id] = acc_data
+    # 3. Create a fresh account via temp-mail (kilitli ve beklemeli)
+    creation_lock = get_creation_lock(api_key_id)
+    with creation_lock:
+        # DOUBLE-CHECK: Bekleyen diger istekler icin kontrol
+        is_waiting_request = False
+        acc = None
+        with ACCOUNT_LOCK:
+            if api_key_id in ACTIVE_ACCOUNTS:
+                candidate = ACTIVE_ACCOUNTS[api_key_id]
+                if candidate.get("member_token") and candidate.get("email"):
+                    acc = candidate
+                    is_waiting_request = True
+
+        # Sirada bekleyen istekler icin 1 dakika aralik koyma
+        if is_waiting_request and acc:
+            print(f"[ACCOUNT] Sirada bekleyen istek uyandi. 1 dakika aralik icin 60 saniye bekleniyor...")
+            time.sleep(60)
             if task_id:
                 try:
                     if db.DB_TYPE == 'postgresql':
-                        db._execute_query('UPDATE tasks SET account_email = %s WHERE task_id = %s', (email, task_id))
+                        db._execute_query('UPDATE tasks SET account_email = %s WHERE task_id = %s', (acc['email'], task_id))
                     else:
-                        db._execute_query('UPDATE tasks SET account_email = ? WHERE task_id = ?', (email, task_id))
+                        db._execute_query('UPDATE tasks SET account_email = ? WHERE task_id = ?', (acc['email'], task_id))
                 except Exception:
                     pass
-            return member_token, acc_data
-        time.sleep(2)
+            return acc["member_token"], acc
+
+        # Sadece sirada 1. olan istek temp-mail ile yeni hesap acar
+        for attempt in range(5):
+            print(f"[ACCOUNT] Registering new account for api_key_id={api_key_id} (attempt {attempt+1}/5)...")
+            member_token, email = create_myedit_account_wrapper(api_key_id)
+            if member_token and email:
+                password = "CyberLink123!"
+                acc_data = {
+                    "email": email,
+                    "password": password,
+                    "member_token": member_token,
+                    "timestamp": time.time()
+                }
+                with ACCOUNT_LOCK:
+                    ACTIVE_ACCOUNTS[api_key_id] = acc_data
+                if task_id:
+                    try:
+                        if db.DB_TYPE == 'postgresql':
+                            db._execute_query('UPDATE tasks SET account_email = %s WHERE task_id = %s', (email, task_id))
+                        else:
+                            db._execute_query('UPDATE tasks SET account_email = ? WHERE task_id = ?', (email, task_id))
+                    except Exception:
+                        pass
+                return member_token, acc_data
+            time.sleep(2)
 
     return None, None
 
