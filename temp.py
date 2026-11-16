@@ -74,7 +74,21 @@ import requests
 # ==============================================================================
 # CyberLink ile stabil çalıştığı test edilen domainler listenin başındadır.
 WHITELIST_DOMAINS = [
-    "zzzzig.com",
+    "howtageek.com",
+    "happypetcorner.com",
+    "skinnytastea.com",
+    "ambitiouskitchena.com",
+    "bitesofwellnessa.com",
+    "cottercruncha.com",
+    "eatingbirdfooda.com",
+    "foodfaithfitnessa.com",
+    "foodpoliticsa.com",
+    "healthyrecipesblogsa.com",
+    "lizshealthytabla.com",
+    "nutritionstrippeda.com",
+    "thehealthymavena.com",
+    "thekitchna.com",
+    "verywellfita.com",
 ]
 
 POLL_COMPONENTS = []
@@ -117,12 +131,12 @@ PROXY_CONFIG = TEMP_MAIL_PROXY_CONFIG
 
 
 # ==============================================================================
-# ANA GEÇİCİ E-POSTA İSTEMCİSİ (tempo.mintraccoon.com)
+# ANA GEÇİCİ E-POSTA İSTEMCİSİ (mail.howtageek.com)
 # ==============================================================================
 class TempMailClient:
-    """tempo.mintraccoon.com API Entegrasyonu"""
+    """mail.howtageek.com API Entegrasyonu"""
 
-    BASE_URL = "https://tempo.mintraccoon.com/api"
+    BASE_URL = "https://mail.howtageek.com"
 
     def __init__(
         self,
@@ -136,16 +150,18 @@ class TempMailClient:
         elif WHITELIST_DOMAINS:
             self.domain = WHITELIST_DOMAINS[0]
         else:
-            self.domain = "zzzzig.com"
+            self.domain = "howtageek.com"
 
         self.box = None
         self.email = None
         self.address = None
         self.token = None
+        self.last_seq = 0
         self.session = requests.Session()
         self.session.headers.update({
-            "accept": "*/*",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "accept": "application/json",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "referer": f"{self.BASE_URL}/",
         })
         apply_temp_mail_proxy(self.session)
         self._seen_ids = set()
@@ -162,27 +178,32 @@ class TempMailClient:
     ) -> str:
         """
         Yeni bir geçici e-posta adresi üretir ve 'email@domain.com' string döner.
-        İstenen domain (@zzzzig.com) gelene kadar tekrar istek atar.
+        İstenen domain gelene kadar tekrar istek atar.
         """
         if domain:
             self.domain = domain
         elif not self.domain and WHITELIST_DOMAINS:
             self.domain = WHITELIST_DOMAINS[0]
 
-        target = self.domain or "zzzzig.com"
-        if not target.startswith("@"):
-            target = "@" + target
+        target_domain = (self.domain or "howtageek.com").lstrip("@")
+        target_suffix = "@" + target_domain
 
         while True:
             try:
-                resp = self.session.post(f"{self.BASE_URL}/email?force=true", timeout=15)
+                resp = self.session.get(
+                    f"{self.BASE_URL}/session/reset",
+                    params={"domain": target_domain},
+                    timeout=15,
+                )
                 if resp.status_code == 200:
                     data = resp.json()
-                    email = data.get("email", "")
-                    if email.endswith(target):
+                    email = data.get("address", "")
+
+                    if email.endswith(target_suffix):
                         self.email = email
                         self.address = email
-                        self.token = data.get("token", "")
+                        self.last_seq = 0
+                        self._seen_ids.clear()
                         print(f"[Temp Mail] Olusturuldu: {self.email}")
                         return self.email
                 time.sleep(0.5)
@@ -192,22 +213,36 @@ class TempMailClient:
 
     def get_messages(self) -> List[Dict[str, Any]]:
         """Gelen kutusundaki mesajları listeler."""
-        if not self.email or not self.token:
+        if not self.email:
             return []
-        headers = {"x-email-token": self.token}
-        res = self.session.get(f"{self.BASE_URL}/inbox/{self.email}", headers=headers, timeout=15)
+        res = self.session.get(
+            f"{self.BASE_URL}/messages/messagesAfter/{self.last_seq}",
+            timeout=15,
+        )
         if res.status_code == 200:
-            return res.json().get("messages", [])
+            data = res.json()
+            messages = data.get("messages", [])
+            if messages:
+                self.last_seq = data.get("nextIndex", self.last_seq)
+            return messages
         return []
 
     def get_message_detail(self, message_id: str) -> Dict[str, Any]:
         """Belirtilen mesajın detaylarını getirir."""
-        if not self.email or not self.token:
+        if not self.email:
             return {}
-        headers = {"x-email-token": self.token}
-        res = self.session.get(f"{self.BASE_URL}/message/{self.email}/{message_id}", headers=headers, timeout=15)
+        res = self.session.get(
+            f"{self.BASE_URL}/messages/{message_id}",
+            timeout=15,
+        )
         if res.status_code == 200:
-            return res.json()
+            msg_data = res.json().get("message", {})
+            # Eski yapı ile tam uyumluluk için body_html ve body_text anahtarlarını da ekle
+            if "html" in msg_data and "body_html" not in msg_data:
+                msg_data["body_html"] = msg_data.get("html", "")
+            if "text" in msg_data and "body_text" not in msg_data:
+                msg_data["body_text"] = msg_data.get("text", "")
+            return msg_data
         return {}
 
     def _extract_activation_link(self, text: str) -> Optional[str]:
@@ -215,28 +250,43 @@ class TempMailClient:
         if not text:
             return None
 
-        # 1. CyberLink trace_mem bağlantısı
+        # 1. Doğrudan 'account-activate' içeren href linkini yakala
+        matches = re.findall(
+            r'href=[\'"](https?://[^\'"]*account-activate[^\'"]*)[\'"]',
+            text,
+            re.IGNORECASE,
+        )
+
+        # 2. Alternatif: metin içinde veya html içinde account-activate
+        if not matches:
+            matches = re.findall(
+                r'(https?://[^\s\'"<>]*account-activate[^\s\'"<>]*)',
+                text,
+                re.IGNORECASE,
+            )
+
+        if matches:
+            link = matches[0].replace("&amp;", "&").rstrip("\"'")
+            # Eğer traceLink sarmalayıcısı ise içindeki asıl aktivasyon linkini çöz
+            if "traceLink=" in link:
+                parsed = urllib.parse.urlparse(link)
+                qs = urllib.parse.parse_qs(parsed.query)
+                if "traceLink" in qs and qs["traceLink"]:
+                    return qs["traceLink"][0]
+            return link
+
+        # 3. Yedek: CyberLink trace_mem bağlantısı kontrolü
         pattern_trace = r'https?://membership\.cyberlink\.com/prog/event/autoedm/trace_mem\.jsp\?[^\s"\'<>]+'
         trace_links = re.findall(pattern_trace, text)
         for link in trace_links:
             link = link.replace("&amp;", "&").rstrip("\"'")
+            if "traceLink=" in link:
+                parsed = urllib.parse.urlparse(link)
+                qs = urllib.parse.parse_qs(parsed.query)
+                if "traceLink" in qs and qs["traceLink"]:
+                    return qs["traceLink"][0]
             if any(k in link for k in ["account-activate", "Activate", "active-member"]):
                 return link
-
-        # 2. Direkt account-activate veya traceLink bağlantısı
-        match = re.search(r'href=["\']([^"\']*(?:account-activate|traceLink=[^"\']*))["\']', text)
-        if match:
-            return match.group(1).replace("&amp;", "&").rstrip("\"'")
-
-        # 3. Genel CyberLink aktivasyon bağlantıları
-        pattern_gen = r'https?://[^\s"\'<>]+'
-        for link in re.findall(pattern_gen, text):
-            link = link.replace("&amp;", "&").rstrip("\"'")
-            if any(k in link for k in ["account-activate", "activate", "confirm", "verify"]):
-                return link
-
-        if trace_links:
-            return trace_links[0].replace("&amp;", "&").rstrip("\"'")
 
         return None
 
@@ -292,7 +342,9 @@ class TempMailClient:
                         print(f"[+] Yeni mail alındı! ID: {msg_id}")
                         detail = self.get_message_detail(msg_id)
                         if detail:
-                            content = (detail.get("body_html") or "") + "\n" + (detail.get("body_text") or "")
+                            html_content = detail.get("html") or detail.get("body_html") or ""
+                            text_content = detail.get("text") or detail.get("body_text") or ""
+                            content = html_content + "\n" + text_content
                             link = self._extract_activation_link(content)
                             if link:
                                 print(f"  -> Aktivasyon linki bulundu: {link[:80]}...")
@@ -321,7 +373,9 @@ class TempMailClient:
                         print(f"[+] Yeni mail alındı! ID: {msg_id}")
                         detail = self.get_message_detail(msg_id)
                         if detail:
-                            content = (detail.get("body_html") or "") + "\n" + (detail.get("body_text") or "")
+                            html_content = detail.get("html") or detail.get("body_html") or ""
+                            text_content = detail.get("text") or detail.get("body_text") or ""
+                            content = html_content + "\n" + text_content
                             code = self._extract_code(content)
                             if code:
                                 print(f"[+] Doğrulama kodu bulundu: {code}")
